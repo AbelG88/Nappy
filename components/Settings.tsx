@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AppSettings, AppData } from '../types';
-import { Download, Upload, Bell, BellOff, Info, Share2, Heart, ShieldAlert } from 'lucide-react';
+import { Download, Upload, Bell, BellOff, Info, Share2, Heart, ShieldAlert, Baby } from 'lucide-react';
 
 interface SettingsProps {
   settings: AppSettings;
@@ -51,13 +51,32 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, onExpor
   const testNotification = () => {
     if (notifPermission === 'granted') {
       new Notification("¡Prueba exitosa! 🚽", {
-        body: "Así se verán los recordatorios de PottyTime.",
+        body: `Así se verán los recordatorios para ${settings.childName || 'tu peque'}.`,
       });
     }
   };
 
   return (
     <div className="space-y-6">
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-6">
+        <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+          <Baby size={18} className="text-blue-500" /> Perfil del Niño
+        </h3>
+        <div>
+          <label className="block text-xs font-bold text-slate-400 uppercase mb-3">Nombre del Niño</label>
+          <input
+            type="text"
+            value={settings.childName}
+            onChange={(e) => onUpdateSettings({ childName: e.target.value })}
+            placeholder="Ej: Mateo, Sofía..."
+            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-700 font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+          />
+          <p className="text-[10px] text-slate-400 mt-2 italic px-1">
+            Este nombre se usará en las notificaciones de recordatorio.
+          </p>
+        </div>
+      </div>
+
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-6">
         <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
           <Bell size={18} className="text-blue-500" /> Recordatorios

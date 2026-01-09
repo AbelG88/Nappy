@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { BathroomLog, Caregiver, LogType } from '../types';
 import { Trash2, Droplet, Ghost, CheckCircle2, XCircle, Calendar, Filter, User, AlertTriangle } from 'lucide-react';
 
@@ -9,6 +9,115 @@ interface HistoryProps {
   onDeleteLog: (id: string) => void;
   onDeleteAll: () => void;
 }
+
+const SwipeableItem: React.FC<{
+  log: BathroomLog;
+  caregiverName: string;
+  onDelete: (id: string) => void;
+}> = ({ log, caregiverName, onDelete }) => {
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isSwiping, setIsSwiping] = useState(false);
+  const startX = useRef(0);
+  const maxSwipe = 80; // Pixels to reveal the button
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    startX.current = e.touches[0].clientX;
+    setIsSwiping(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isSwiping) return;
+    const currentX = e.touches[0].clientX;
+    const diff = currentX - startX.current;
+    
+    // Only allow swiping to the left (negative values)
+    if (diff < 0) {
+      // Use math to make it slightly resistant as it goes further
+      const offset = Math.max(diff, -maxSwipe - 20);
+      setSwipeOffset(offset);
+    } else {
+      setSwipeOffset(0);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsSwiping(false);
+    if (swipeOffset < -maxSwipe / 2) {
+      setSwipeOffset(-maxSwipe);
+    } else {
+      setSwipeOffset(0);
+    }
+  };
+
+  const resetSwipe = () => setSwipeOffset(0);
+
+  return (
+    <div className="relative overflow-hidden rounded-3xl mb-4 group">
+      {/* Background Action Area (Delete Button) */}
+      <div 
+        className="absolute inset-y-0 right-0 w-20 bg-rose-500 flex items-center justify-center text-white cursor-pointer"
+        onClick={() => {
+          onDelete(log.id);
+          resetSwipe();
+        }}
+      >
+        <Trash2 size={24} />
+      </div>
+
+      {/* Foreground Content */}
+      <div 
+        className="relative bg-white p-4 shadow-sm border border-slate-100 flex items-center gap-4 transition-transform duration-200 ease-out z-10"
+        style={{ transform: `translateX(${swipeOffset}px)` }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onClick={swipeOffset !== 0 ? resetSwipe : undefined}
+      >
+        <div className={`p-3 rounded-2xl shrink-0 ${
+          log.success ? 'bg-green-50 text-green-500' : 'bg-rose-50 text-rose-500'
+        }`}>
+          {log.type === LogType.PEE && <Droplet size={24} />}
+          {log.type === LogType.POOP && <Ghost size={24} />}
+          {log.type === LogType.BOTH && (
+            <div className="flex -space-x-1">
+              <Droplet size={18} />
+              <Ghost size={18} />
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between mb-0.5">
+            <p className="font-bold text-slate-800">
+              {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </p>
+            <div className="flex items-center gap-1">
+              {log.success ? 
+                <CheckCircle2 size={16} className="text-green-500" /> : 
+                <XCircle size={16} className="text-rose-500" />
+              }
+              <span className={`text-[10px] font-bold uppercase tracking-wider ${log.success ? 'text-green-600' : 'text-rose-600'}`}>
+                {log.success ? 'Logrado' : 'Intento'}
+              </span>
+            </div>
+          </div>
+          <p className="text-xs text-slate-500 font-medium">
+            {new Date(log.timestamp).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}
+          </p>
+          {log.notes && <p className="text-xs text-slate-600 italic mt-1 truncate">{log.notes}</p>}
+          <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+            Por: <span className="font-bold text-slate-500">{caregiverName}</span>
+          </p>
+        </div>
+        
+        {/* Subtle indicator for mobile users that this can be swiped */}
+        <div className="w-1.5 h-8 bg-slate-100 rounded-full shrink-0 flex items-center justify-center opacity-40">
+           <div className="w-0.5 h-4 bg-slate-300 rounded-full" />
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const History: React.FC<HistoryProps> = ({ logs, caregivers, onDeleteLog, onDeleteAll }) => {
   const [typeFilter, setTypeFilter] = useState<LogType | 'ALL'>('ALL');
@@ -109,53 +218,17 @@ const History: React.FC<HistoryProps> = ({ logs, caregivers, onDeleteLog, onDele
           <p className="text-sm font-medium">No se encontraron registros con estos filtros.</p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-0">
+          <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-3 px-1 italic">
+            Desliza a la izquierda para eliminar
+          </p>
           {filteredLogs.map((log) => (
-            <div key={log.id} className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-4 group transition-all hover:shadow-md animate-in fade-in slide-in-from-bottom-2">
-              <div className={`p-3 rounded-2xl shrink-0 ${
-                log.success ? 'bg-green-50 text-green-500' : 'bg-rose-50 text-rose-500'
-              }`}>
-                {log.type === LogType.PEE && <Droplet size={24} />}
-                {log.type === LogType.POOP && <Ghost size={24} />}
-                {log.type === LogType.BOTH && (
-                  <div className="flex -space-x-1">
-                    <Droplet size={18} />
-                    <Ghost size={18} />
-                  </div>
-                )}
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-0.5">
-                  <p className="font-bold text-slate-800">
-                    {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                  <div className="flex items-center gap-1">
-                    {log.success ? 
-                      <CheckCircle2 size={16} className="text-green-500" /> : 
-                      <XCircle size={16} className="text-rose-500" />
-                    }
-                    <span className={`text-[10px] font-bold uppercase tracking-wider ${log.success ? 'text-green-600' : 'text-rose-600'}`}>
-                      {log.success ? 'Logrado' : 'Intento'}
-                    </span>
-                  </div>
-                </div>
-                <p className="text-xs text-slate-500 font-medium">
-                  {new Date(log.timestamp).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}
-                </p>
-                {log.notes && <p className="text-xs text-slate-600 italic mt-1 truncate">{log.notes}</p>}
-                <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
-                  Por: <span className="font-bold text-slate-500">{getCaregiverName(log.caregiverId)}</span>
-                </p>
-              </div>
-
-              <button
-                onClick={() => onDeleteLog(log.id)}
-                className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
-              >
-                <Trash2 size={18} />
-              </button>
-            </div>
+            <SwipeableItem 
+              key={log.id} 
+              log={log} 
+              caregiverName={getCaregiverName(log.caregiverId)} 
+              onDelete={onDeleteLog} 
+            />
           ))}
         </div>
       )}
