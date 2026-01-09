@@ -1,0 +1,5 @@
+{
+  "name": "PottyTime Tracker",
+  "description": "A comprehensive and intuitive mobile-first application to track a child's potty training progress, manage caregivers, and analyze statistics without needing cloud sync.",
+  "requestFramePermissions": []
+}
