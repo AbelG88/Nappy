@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useRef } from 'react';
 import { BathroomLog, Caregiver, LogType } from '../types';
-import { Trash2, Droplet, Ghost, CheckCircle2, XCircle, Calendar, Filter, User, AlertTriangle } from 'lucide-react';
+import { Trash2, Droplet, Ghost, CheckCircle2, XCircle, Calendar, Filter, User, AlertTriangle, Search } from 'lucide-react';
 
 interface HistoryProps {
   logs: BathroomLog[];
@@ -122,6 +122,7 @@ const SwipeableItem: React.FC<{
 const History: React.FC<HistoryProps> = ({ logs, caregivers, onDeleteLog, onDeleteAll }) => {
   const [typeFilter, setTypeFilter] = useState<LogType | 'ALL'>('ALL');
   const [caregiverFilter, setCaregiverFilter] = useState<string>('ALL');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const getCaregiverName = (id: string) => caregivers.find(c => c.id === id)?.name || 'Desconocido';
 
@@ -136,8 +137,17 @@ const History: React.FC<HistoryProps> = ({ logs, caregivers, onDeleteLog, onDele
       result = result.filter(log => log.caregiverId === caregiverFilter);
     }
 
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(log => {
+        const cName = getCaregiverName(log.caregiverId).toLowerCase();
+        const notes = log.notes.toLowerCase();
+        return cName.includes(term) || notes.includes(term);
+      });
+    }
+
     return result.sort((a, b) => b.timestamp - a.timestamp);
-  }, [logs, typeFilter, caregiverFilter]);
+  }, [logs, typeFilter, caregiverFilter, searchTerm, caregivers]);
 
   const handleDeleteAll = () => {
     if (window.confirm('¿Estás seguro de que quieres borrar TODOS los registros? Esta acción no se puede deshacer.')) {
@@ -174,10 +184,24 @@ const History: React.FC<HistoryProps> = ({ logs, caregivers, onDeleteLog, onDele
         <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 space-y-4 mb-6">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">
             <Filter size={14} />
-            <span>Filtros</span>
+            <span>Filtros y Búsqueda</span>
           </div>
           
           <div className="space-y-3">
+            {/* Search Input */}
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search size={16} className="text-slate-400" />
+              </div>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar por notas o cuidador..."
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-2 pl-10 pr-4 text-xs font-bold text-slate-600 focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+              />
+            </div>
+
             <div>
               <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
                 {['ALL', LogType.PEE, LogType.POOP, LogType.BOTH].map((t) => (
@@ -216,6 +240,12 @@ const History: React.FC<HistoryProps> = ({ logs, caregivers, onDeleteLog, onDele
       {filteredLogs.length === 0 ? (
         <div className="text-center py-10 text-slate-400">
           <p className="text-sm font-medium">No se encontraron registros con estos filtros.</p>
+          <button 
+            onClick={() => { setTypeFilter('ALL'); setCaregiverFilter('ALL'); setSearchTerm(''); }}
+            className="text-xs text-blue-500 font-bold mt-2"
+          >
+            Limpiar filtros
+          </button>
         </div>
       ) : (
         <div className="space-y-0">
