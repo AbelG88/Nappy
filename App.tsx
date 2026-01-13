@@ -50,11 +50,20 @@ const App: React.FC = () => {
 
   const handleAddLog = (logData: Omit<BathroomLog, 'id'>) => {
     const newLog: BathroomLog = { ...logData, id: generateId() };
-    setData(prev => ({ 
-      ...prev, 
-      logs: [newLog, ...prev.logs],
-      settings: { ...prev.settings, lastReminderSentAt: Date.now() }
-    }));
+    setData(prev => {
+      const updatedLogs = [newLog, ...prev.logs];
+      
+      // Mostrar recordatorio de donación cada 10 registros
+      if (updatedLogs.length > 0 && updatedLogs.length % 10 === 0) {
+        setShowDonation(true);
+      }
+
+      return { 
+        ...prev, 
+        logs: updatedLogs,
+        settings: { ...prev.settings, lastReminderSentAt: Date.now() }
+      };
+    });
   };
 
   const handleDeleteLog = useCallback((id: string) => {
@@ -147,16 +156,53 @@ const App: React.FC = () => {
       </Layout>
 
       {showDonation && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6">
-          <div className="bg-white rounded-[40px] p-8 max-w-sm w-full shadow-2xl relative text-center space-y-4">
-            <button onClick={() => setShowDonation(false)} className="absolute top-4 right-4 p-2 text-slate-300"><X size={20} /></button>
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-rose-500 text-white rounded-[32px] shadow-xl">Heart</div>
-            <h3 className="text-2xl font-black text-slate-800">¿Te gusta Nappy?</h3>
-            <div className="space-y-3 pt-4">
-              <a href="https://paypal.me/AbelG88" target="_blank" className="w-full bg-[#0070ba] text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2">PayPal</a>
-              <a href="https://link.mercadopago.com.ar/abelg88" target="_blank" className="w-full bg-[#009ee3] text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2">Mercado Pago</a>
+        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[40px] p-8 max-w-sm w-full shadow-2xl relative text-center space-y-5 animate-in zoom-in-95 duration-300">
+            <button 
+              onClick={() => setShowDonation(false)} 
+              className="absolute top-6 right-6 p-2 text-slate-300 hover:text-slate-500 transition-colors"
+            >
+              <X size={24} />
+            </button>
+            
+            <div className="inline-flex items-center justify-center w-24 h-24 bg-rose-500 text-white rounded-[32px] shadow-xl shadow-rose-200 animate-pulse">
+              <Heart size={48} fill="currentColor" />
             </div>
-            <button onClick={() => setShowDonation(false)} className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pt-2">Cerrar</button>
+            
+            <div className="space-y-2">
+              <h3 className="text-2xl font-black text-slate-800">¿Te gusta Nappy?</h3>
+              <p className="text-sm text-slate-500 leading-relaxed px-2">
+                ¡Has completado <b>{data.logs.length}</b> registros! Tu apoyo nos ayuda a seguir mejorando esta herramienta gratuita.
+              </p>
+            </div>
+
+            <div className="space-y-3 pt-4">
+              <a 
+                href="https://paypal.me/AbelG88" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="w-full bg-[#0070ba] hover:bg-[#005ea6] text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-blue-100"
+              >
+                <CreditCard size={20} />
+                PayPal
+              </a>
+              <a 
+                href="https://link.mercadopago.com.ar/abelg88" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="w-full bg-[#009ee3] hover:bg-[#008cc9] text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-sky-100"
+              >
+                <CreditCard size={20} />
+                Mercado Pago
+              </a>
+            </div>
+            
+            <button 
+              onClick={() => setShowDonation(false)} 
+              className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] pt-2 hover:text-slate-500 transition-colors"
+            >
+              Quizás más tarde
+            </button>
           </div>
         </div>
       )}
