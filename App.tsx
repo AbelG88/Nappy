@@ -8,35 +8,22 @@ import Caregivers from './components/Caregivers';
 import Settings from './components/Settings';
 import { storageService } from './services/storage';
 import { AppData, BathroomLog, Caregiver, AppSettings } from './types';
-import { Heart, X, CreditCard, ExternalLink } from 'lucide-react';
+import { Heart, X, CreditCard } from 'lucide-react';
+
+const generateId = () => Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
 
 const App: React.FC = () => {
   const [data, setData] = useState<AppData>(storageService.loadData());
   const [activeTab, setActiveTab] = useState('track');
   const [showDonation, setShowDonation] = useState(false);
   
-  // Refs to avoid stale closures in intervals
   const dataRef = useRef(data);
   useEffect(() => { dataRef.current = data; }, [data]);
 
-  // Persistence
   useEffect(() => {
     storageService.saveData(data);
   }, [data]);
 
-  // Periodic Donation Prompt
-  useEffect(() => {
-    const checkDonation = () => {
-      const now = Date.now();
-      const twelveHours = 12 * 60 * 60 * 1000;
-      if (now - data.settings.lastDonationPrompt > twelveHours) {
-        setShowDonation(true);
-      }
-    };
-    checkDonation();
-  }, [data.settings.lastDonationPrompt]);
-
-  // Notification Logic
   useEffect(() => {
     const checkReminders = () => {
       const { settings, logs } = dataRef.current;
@@ -44,57 +31,48 @@ const App: React.FC = () => {
 
       const now = Date.now();
       const intervalMs = settings.reminderIntervalMinutes * 60 * 1000;
-      
-      // Calculate time since last event (log or last reminder)
-      const lastLog = logs.length > 0 ? [...logs].sort((a,b) => b.timestamp - a.timestamp)[0].timestamp : 0;
+      const lastLog = logs.length > 0 ? Math.max(...logs.map(l => l.timestamp)) : 0;
       const lastEvent = Math.max(lastLog, settings.lastReminderSentAt);
       
       if (now - lastEvent >= intervalMs) {
-        triggerNotification();
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification("¡Hora del baño! 🚽", {
+            body: `Es momento de llevar a ${dataRef.current.settings.childName || 'tu peque'} al baño.`,
+            icon: "/favicon.ico"
+          });
+          handleUpdateSettings({ lastReminderSentAt: Date.now() });
+        }
       }
     };
-
-    const triggerNotification = () => {
-      if (!("Notification" in window)) return;
-      
-      if (Notification.permission === "granted") {
-        new Notification("¡Hora del baño! 🚽", {
-          body: `Es momento de llevar a ${dataRef.current.settings.childName || 'tu peque'} al baño.`,
-          icon: "/favicon.ico"
-        });
-        
-        // Update last reminder time to avoid spam
-        handleUpdateSettings({ lastReminderSentAt: Date.now() });
-      }
-    };
-
-    const intervalId = setInterval(checkReminders, 30000); // Check every 30 seconds
+    const intervalId = setInterval(checkReminders, 60000);
     return () => clearInterval(intervalId);
   }, []);
 
   const handleAddLog = (logData: Omit<BathroomLog, 'id'>) => {
-    const newLog: BathroomLog = {
-      ...logData,
-      id: crypto.randomUUID()
-    };
+    const newLog: BathroomLog = { ...logData, id: generateId() };
     setData(prev => ({ 
       ...prev, 
-      logs: [...prev.logs, newLog],
-      // Reset reminder timer when a log is added manually
+      logs: [newLog, ...prev.logs],
       settings: { ...prev.settings, lastReminderSentAt: Date.now() }
     }));
   };
 
-  const handleDeleteLog = (id: string) => {
-    setData(prev => ({ ...prev, logs: prev.logs.filter(l => l.id !== id) }));
-  };
+  const handleDeleteLog = useCallback((id: string) => {
+    setData(prev => ({
+      ...prev,
+      logs: prev.logs.filter(l => l.id !== id)
+    }));
+  }, []);
 
-  const handleDeleteAllLogs = () => {
-    setData(prev => ({ ...prev, logs: [] }));
-  };
+  const handleDeleteAllLogs = useCallback(() => {
+    setData(prev => ({
+      ...prev,
+      logs: []
+    }));
+  }, []);
 
   const handleAddCaregiver = (name: string, role: string) => {
-    const newC: Caregiver = { id: crypto.randomUUID(), name, role };
+    const newC: Caregiver = { id: generateId(), name, role };
     setData(prev => ({ ...prev, caregivers: [...prev.caregivers, newC] }));
   };
 
@@ -110,47 +88,46 @@ const App: React.FC = () => {
   };
 
   const handleUpdateSettings = (newSettings: Partial<AppSettings>) => {
-    setData(prev => ({
-      ...prev,
-      settings: { ...prev.settings, ...newSettings }
-    }));
+    setData(prev => ({ ...prev, settings: { ...prev.settings, ...newSettings } }));
   };
 
-  const handleExport = () => {
-    storageService.exportData(data);
-  };
-
+  const handleExport = () => storageService.exportData(data);
+  
   const handleImport = async (file: File) => {
-    const imported = await storageService.importData(file);
-    if (imported) {
-      if (confirm('¿Deseas reemplazar todos tus datos actuales con el archivo importado?')) {
-        setData(imported);
-        alert('Datos importados correctamente.');
+    try {
+      const imported = await storageService.importData(file);
+      if (imported) {
+        setData(prev => {
+          // Fusionar logs evitando duplicados por ID
+          const existingLogIds = new Set(prev.logs.map(l => l.id));
+          const newLogs = imported.logs.filter(l => !existingLogIds.has(l.id));
+          
+          // Fusionar cuidadores evitando duplicados por ID
+          const existingCaregiverIds = new Set(prev.caregivers.map(c => c.id));
+          const newCaregivers = imported.caregivers.filter(c => !existingCaregiverIds.has(c.id));
+
+          return {
+            ...prev,
+            logs: [...newLogs, ...prev.logs].sort((a, b) => b.timestamp - a.timestamp),
+            caregivers: [...prev.caregivers, ...newCaregivers]
+          };
+        });
+        alert('¡Datos fusionados con éxito!');
+      } else {
+        alert('El archivo no es un respaldo válido de Nappy.');
       }
-    } else {
-      alert('Error al importar el archivo. Formato no válido.');
-    }
-  };
-
-  const closeDonation = () => {
-    setShowDonation(false);
-    handleUpdateSettings({ lastDonationPrompt: Date.now() });
-  };
-
-  const getTitle = () => {
-    switch(activeTab) {
-      case 'track': return 'Nuevo Registro';
-      case 'history': return 'Historial';
-      case 'stats': return 'Progreso';
-      case 'caregivers': return 'Equipo de Cuidado';
-      case 'settings': return 'Configuración';
-      default: return 'Nappy';
+    } catch (e) {
+      alert('Error al importar el archivo.');
     }
   };
 
   return (
     <>
-      <Layout activeTab={activeTab} setActiveTab={setActiveTab} title={getTitle()}>
+      <Layout 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        title={activeTab === 'track' ? 'Registro' : activeTab === 'history' ? 'Historial' : activeTab === 'stats' ? 'Progreso' : activeTab === 'caregivers' ? 'Equipo' : 'Ajustes'}
+      >
         {activeTab === 'track' && <Tracker caregivers={data.caregivers} onAddLog={handleAddLog} />}
         {activeTab === 'history' && (
           <History 
@@ -162,88 +139,24 @@ const App: React.FC = () => {
         )}
         {activeTab === 'stats' && <Statistics logs={data.logs} />}
         {activeTab === 'caregivers' && (
-          <Caregivers 
-            caregivers={data.caregivers} 
-            onAdd={handleAddCaregiver} 
-            onUpdate={handleUpdateCaregiver} 
-            onDelete={handleDeleteCaregiver} 
-          />
+          <Caregivers caregivers={data.caregivers} onAdd={handleAddCaregiver} onUpdate={handleUpdateCaregiver} onDelete={handleDeleteCaregiver} />
         )}
         {activeTab === 'settings' && (
-          <Settings 
-            settings={data.settings} 
-            onUpdateSettings={handleUpdateSettings} 
-            onExport={handleExport}
-            onImport={handleImport}
-          />
+          <Settings settings={data.settings} onUpdateSettings={handleUpdateSettings} onExport={handleExport} onImport={handleImport} />
         )}
       </Layout>
 
-      {/* Donation Modal Overlay */}
       {showDonation && (
-        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-300">
-          <div className="bg-white rounded-[40px] p-8 max-w-sm w-full shadow-2xl relative overflow-hidden">
-            <button 
-              onClick={closeDonation}
-              className="absolute top-4 right-4 p-2 text-slate-300 hover:text-slate-500"
-            >
-              <X size={20} />
-            </button>
-            
-            <div className="absolute -top-12 -left-12 w-32 h-32 bg-rose-50 rounded-full" />
-            
-            <div className="relative text-center space-y-4">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-rose-500 text-white rounded-[32px] shadow-xl shadow-rose-200">
-                <Heart size={40} className="fill-white" />
-              </div>
-              
-              <h3 className="text-2xl font-black text-slate-800 leading-tight">
-                ¿Te gusta Nappy?
-              </h3>
-              
-              <p className="text-slate-500 text-sm leading-relaxed">
-                Esta app es gratuita y sin anuncios. Tu apoyo nos ayuda a seguir acompañando a familias en este gran paso.
-              </p>
-              
-              <div className="space-y-3 pt-4">
-                <a 
-                  href="https://paypal.me/AbelG88" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  onClick={closeDonation}
-                  className="w-full bg-[#0070ba] hover:bg-[#003087] text-white font-bold py-4 rounded-2xl shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
-                >
-                  <CreditCard size={18} />
-                  Donar con PayPal
-                </a>
-                <a 
-                  href="https://link.mercadopago.com.ar/abelg88" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  onClick={closeDonation}
-                  className="w-full bg-[#009ee3] hover:bg-[#007db3] text-white font-bold py-4 rounded-2xl shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
-                >
-                  <CreditCard size={18} />
-                  Donar con Mercado Pago
-                </a>
-                <button 
-                  onClick={() => {
-                    alert('¡Gracias por recomendarnos!');
-                    closeDonation();
-                  }}
-                  className="w-full bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold py-4 rounded-2xl transition-all"
-                >
-                  Recomendar la App
-                </button>
-              </div>
-              
-              <button 
-                onClick={closeDonation}
-                className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pt-2 hover:text-slate-600"
-              >
-                Quizás más tarde
-              </button>
+        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6">
+          <div className="bg-white rounded-[40px] p-8 max-w-sm w-full shadow-2xl relative text-center space-y-4">
+            <button onClick={() => setShowDonation(false)} className="absolute top-4 right-4 p-2 text-slate-300"><X size={20} /></button>
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-rose-500 text-white rounded-[32px] shadow-xl">Heart</div>
+            <h3 className="text-2xl font-black text-slate-800">¿Te gusta Nappy?</h3>
+            <div className="space-y-3 pt-4">
+              <a href="https://paypal.me/AbelG88" target="_blank" className="w-full bg-[#0070ba] text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2">PayPal</a>
+              <a href="https://link.mercadopago.com.ar/abelg88" target="_blank" className="w-full bg-[#009ee3] text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2">Mercado Pago</a>
             </div>
+            <button onClick={() => setShowDonation(false)} className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pt-2">Cerrar</button>
           </div>
         </div>
       )}

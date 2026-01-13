@@ -42,7 +42,8 @@ export const storageService = {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `potty_tracker_backup_${new Date().toISOString().split('T')[0]}.json`;
+    // Nombre de archivo solicitado: nappy_backup_[timestamp].json
+    a.download = `nappy_backup_${Date.now()}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -53,7 +54,8 @@ export const storageService = {
     try {
       const text = await file.text();
       const data = JSON.parse(text) as AppData;
-      if (data.logs && data.caregivers && data.settings) {
+      // Validación básica de estructura
+      if (data && Array.isArray(data.logs) && Array.isArray(data.caregivers) && data.settings) {
         return data;
       }
       return null;
