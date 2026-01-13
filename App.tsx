@@ -144,7 +144,7 @@ const App: React.FC = () => {
       case 'stats': return 'Progreso';
       case 'caregivers': return 'Equipo de Cuidado';
       case 'settings': return 'Configuración';
-      default: return 'PottyTime';
+      default: return 'Nappy';
     }
   };
 
@@ -198,7 +198,7 @@ const App: React.FC = () => {
               </div>
               
               <h3 className="text-2xl font-black text-slate-800 leading-tight">
-                ¿Te gusta PottyTime?
+                ¿Te gusta Nappy?
               </h3>
               
               <p className="text-slate-500 text-sm leading-relaxed">

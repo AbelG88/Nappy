@@ -23,7 +23,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab, titl
       <header className="bg-blue-500 p-4 pt-8 text-white flex justify-between items-center shrink-0">
         <h1 className="text-xl font-bold tracking-tight">{title}</h1>
         <div className="bg-white/20 px-3 py-1 rounded-full text-xs font-medium">
-          PottyTime 🚽
+          Nappy 🚽
         </div>
       </header>
 
