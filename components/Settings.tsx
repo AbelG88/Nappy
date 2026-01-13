@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AppSettings, AppData } from '../types';
-import { Download, Upload, Bell, BellOff, Info, Share2, Heart, ShieldAlert, Baby } from 'lucide-react';
+import { Download, Upload, Bell, BellOff, Info, Share2, Heart, ShieldAlert, Baby, CreditCard } from 'lucide-react';
 
 interface SettingsProps {
   settings: AppSettings;
@@ -162,9 +162,29 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, onExpor
            <h3 className="font-bold text-lg">Apoya el proyecto</h3>
         </div>
         <p className="text-blue-100 text-xs leading-relaxed">
-          Si esta app te ayuda, considera recomendarnos o hacer una pequeña donación para mantener las actualizaciones gratuitas.
+          Nappy es gratuito. Tu apoyo nos ayuda a seguir mejorando para todas las familias.
         </p>
-        <button className="w-full bg-white text-blue-600 font-bold py-3 rounded-2xl shadow-xl shadow-blue-900/20 active:scale-95 transition-all">
+        <div className="space-y-2">
+          <a 
+            href="https://www.paypal.me" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="w-full bg-white text-[#0070ba] font-bold py-3 rounded-2xl flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all"
+          >
+            <CreditCard size={18} />
+            PayPal
+          </a>
+          <a 
+            href="https://www.mercadopago.com" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="w-full bg-white text-[#009ee3] font-bold py-3 rounded-2xl flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all"
+          >
+            <CreditCard size={18} />
+            Mercado Pago
+          </a>
+        </div>
+        <button className="w-full bg-blue-500/30 text-white border border-white/20 font-bold py-3 rounded-2xl active:scale-95 transition-all mt-2">
           Recomendar App 🌟
         </button>
       </div>

@@ -8,7 +8,7 @@ import Caregivers from './components/Caregivers';
 import Settings from './components/Settings';
 import { storageService } from './services/storage';
 import { AppData, BathroomLog, Caregiver, AppSettings } from './types';
-import { Heart, X } from 'lucide-react';
+import { Heart, X, CreditCard, ExternalLink } from 'lucide-react';
 
 const App: React.FC = () => {
   const [data, setData] = useState<AppData>(storageService.loadData());
@@ -202,19 +202,30 @@ const App: React.FC = () => {
               </h3>
               
               <p className="text-slate-500 text-sm leading-relaxed">
-                Esta app es gratuita y sin anuncios. Tu apoyo nos ayuda a seguir ayudando a miles de familias en este gran paso.
+                Esta app es gratuita y sin anuncios. Tu apoyo nos ayuda a seguir acompañando a familias en este gran paso.
               </p>
               
               <div className="space-y-3 pt-4">
-                <button 
-                  onClick={() => {
-                    alert('¡Gracias! Abriendo enlace de donación...');
-                    closeDonation();
-                  }}
-                  className="w-full bg-rose-500 hover:bg-rose-600 text-white font-bold py-4 rounded-2xl shadow-lg shadow-rose-200 transition-all active:scale-95"
+                <a 
+                  href="https://www.paypal.me" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  onClick={closeDonation}
+                  className="w-full bg-[#0070ba] hover:bg-[#003087] text-white font-bold py-4 rounded-2xl shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
                 >
-                  Hacer una Donación ☕
-                </button>
+                  <CreditCard size={18} />
+                  Donar con PayPal
+                </a>
+                <a 
+                  href="https://www.mercadopago.com" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  onClick={closeDonation}
+                  className="w-full bg-[#009ee3] hover:bg-[#007db3] text-white font-bold py-4 rounded-2xl shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
+                >
+                  <CreditCard size={18} />
+                  Donar con Mercado Pago
+                </a>
                 <button 
                   onClick={() => {
                     alert('¡Gracias por recomendarnos!');
