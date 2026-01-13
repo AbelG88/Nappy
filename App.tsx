@@ -207,7 +207,7 @@ const App: React.FC = () => {
               
               <div className="space-y-3 pt-4">
                 <a 
-                  href="https://www.paypal.me" 
+                  href="https://paypal.me/AbelG88" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   onClick={closeDonation}
@@ -217,7 +217,7 @@ const App: React.FC = () => {
                   Donar con PayPal
                 </a>
                 <a 
-                  href="https://www.mercadopago.com" 
+                  href="https://link.mercadopago.com.ar/abelg88" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   onClick={closeDonation}

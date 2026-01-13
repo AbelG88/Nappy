@@ -166,7 +166,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, onExpor
         </p>
         <div className="space-y-2">
           <a 
-            href="https://www.paypal.me" 
+            href="https://paypal.me/AbelG88" 
             target="_blank" 
             rel="noopener noreferrer"
             className="w-full bg-white text-[#0070ba] font-bold py-3 rounded-2xl flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all"
@@ -175,7 +175,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, onExpor
             PayPal
           </a>
           <a 
-            href="https://www.mercadopago.com" 
+            href="https://link.mercadopago.com.ar/abelg88" 
             target="_blank" 
             rel="noopener noreferrer"
             className="w-full bg-white text-[#009ee3] font-bold py-3 rounded-2xl flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-all"
