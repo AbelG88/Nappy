@@ -26,6 +26,7 @@ export interface AppSettings {
   lastDonationPrompt: number;
   childName: string;
   lastReminderSentAt: number;
+  onboardingCompleted: boolean;
 }
 
 export interface AppData {

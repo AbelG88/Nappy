@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Layout from './components/Layout';
 import Tracker from './components/Tracker';
@@ -6,6 +5,7 @@ import History from './components/History';
 import Statistics from './components/Statistics';
 import Caregivers from './components/Caregivers';
 import Settings from './components/Settings';
+import Onboarding from './components/Onboarding';
 import { storageService } from './services/storage';
 import { AppData, BathroomLog, Caregiver, AppSettings } from './types';
 import { Heart, X, CreditCard } from 'lucide-react';
@@ -27,7 +27,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const checkReminders = () => {
       const { settings, logs } = dataRef.current;
-      if (!settings.remindersEnabled) return;
+      if (!settings.remindersEnabled || !settings.onboardingCompleted) return;
 
       const now = Date.now();
       const intervalMs = settings.reminderIntervalMinutes * 60 * 1000;
@@ -52,18 +52,27 @@ const App: React.FC = () => {
     const newLog: BathroomLog = { ...logData, id: generateId() };
     setData(prev => {
       const updatedLogs = [newLog, ...prev.logs];
-      
-      // Mostrar recordatorio de donación cada 10 registros
       if (updatedLogs.length > 0 && updatedLogs.length % 10 === 0) {
         setShowDonation(true);
       }
-
       return { 
         ...prev, 
         logs: updatedLogs,
         settings: { ...prev.settings, lastReminderSentAt: Date.now() }
       };
     });
+  };
+
+  const handleCompleteOnboarding = (childName: string, caregiverName: string, caregiverRole: string) => {
+    setData(prev => ({
+      ...prev,
+      caregivers: [{ id: '1', name: caregiverName, role: caregiverRole }],
+      settings: {
+        ...prev.settings,
+        childName,
+        onboardingCompleted: true
+      }
+    }));
   };
 
   const handleDeleteLog = useCallback((id: string) => {
@@ -107,18 +116,16 @@ const App: React.FC = () => {
       const imported = await storageService.importData(file);
       if (imported) {
         setData(prev => {
-          // Fusionar logs evitando duplicados por ID
           const existingLogIds = new Set(prev.logs.map(l => l.id));
           const newLogs = imported.logs.filter(l => !existingLogIds.has(l.id));
-          
-          // Fusionar cuidadores evitando duplicados por ID
           const existingCaregiverIds = new Set(prev.caregivers.map(c => c.id));
           const newCaregivers = imported.caregivers.filter(c => !existingCaregiverIds.has(c.id));
 
           return {
             ...prev,
             logs: [...newLogs, ...prev.logs].sort((a, b) => b.timestamp - a.timestamp),
-            caregivers: [...prev.caregivers, ...newCaregivers]
+            caregivers: [...prev.caregivers, ...newCaregivers],
+            settings: { ...prev.settings, onboardingCompleted: true } // Marcar como completo al importar
           };
         });
         alert('¡Datos fusionados con éxito!');
@@ -129,6 +136,10 @@ const App: React.FC = () => {
       alert('Error al importar el archivo.');
     }
   };
+
+  if (!data.settings.onboardingCompleted) {
+    return <Onboarding onComplete={handleCompleteOnboarding} />;
+  }
 
   return (
     <>
@@ -164,45 +175,20 @@ const App: React.FC = () => {
             >
               <X size={24} />
             </button>
-            
             <div className="inline-flex items-center justify-center w-24 h-24 bg-rose-500 text-white rounded-[32px] shadow-xl shadow-rose-200 animate-pulse">
               <Heart size={48} fill="currentColor" />
             </div>
-            
             <div className="space-y-2">
               <h3 className="text-2xl font-black text-slate-800">¿Te gusta Nappy?</h3>
               <p className="text-sm text-slate-500 leading-relaxed px-2">
                 ¡Has completado <b>{data.logs.length}</b> registros! Tu apoyo nos ayuda a seguir mejorando esta herramienta gratuita.
               </p>
             </div>
-
             <div className="space-y-3 pt-4">
-              <a 
-                href="https://paypal.me/AbelG88" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-full bg-[#0070ba] hover:bg-[#005ea6] text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-blue-100"
-              >
-                <CreditCard size={20} />
-                PayPal
-              </a>
-              <a 
-                href="https://link.mercadopago.com.ar/abelg88" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="w-full bg-[#009ee3] hover:bg-[#008cc9] text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-sky-100"
-              >
-                <CreditCard size={20} />
-                Mercado Pago
-              </a>
+              <a href="https://paypal.me/AbelG88" target="_blank" rel="noopener noreferrer" className="w-full bg-[#0070ba] hover:bg-[#005ea6] text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-blue-100"><CreditCard size={20} />PayPal</a>
+              <a href="https://link.mercadopago.com.ar/abelg88" target="_blank" rel="noopener noreferrer" className="w-full bg-[#009ee3] hover:bg-[#008cc9] text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-sky-100"><CreditCard size={20} />Mercado Pago</a>
             </div>
-            
-            <button 
-              onClick={() => setShowDonation(false)} 
-              className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] pt-2 hover:text-slate-500 transition-colors"
-            >
-              Quizás más tarde
-            </button>
+            <button onClick={() => setShowDonation(false)} className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] pt-2 hover:text-slate-500 transition-colors">Quizás más tarde</button>
           </div>
         </div>
       )}

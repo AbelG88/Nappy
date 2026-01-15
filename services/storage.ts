@@ -6,8 +6,9 @@ const DEFAULT_SETTINGS: AppSettings = {
   reminderIntervalMinutes: 120,
   remindersEnabled: false,
   lastDonationPrompt: Date.now(),
-  childName: 'Mi Peque',
-  lastReminderSentAt: 0
+  childName: '',
+  lastReminderSentAt: 0,
+  onboardingCompleted: false
 };
 
 const DEFAULT_DATA: AppData = {
@@ -40,27 +41,22 @@ export const storageService = {
     const filename = `nappy_backup_${Date.now()}.json`;
     const jsonString = JSON.stringify(data, null, 2);
 
-    // Intentar utilizar la API de Compartir Nativa (ideal para móviles y WhatsApp)
     if (navigator.share) {
       try {
         const file = new File([jsonString], filename, { type: 'application/json' });
-        
-        // Verificar si el navegador soporta específicamente el envío de archivos
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({
             files: [file],
             title: 'Respaldo Nappy',
             text: 'Aquí tienes mi copia de seguridad de Nappy 🚽',
           });
-          return; // Éxito compartiendo
+          return;
         }
       } catch (err) {
-        // El usuario puede haber cancelado o hubo un error, se intenta el fallback
-        console.warn('Share API falló o fue cancelado, intentando descarga directa:', err);
+        console.warn('Share API falló, intentando descarga:', err);
       }
     }
 
-    // Fallback: Descarga tradicional si Share API no está disponible o falla
     const blob = new Blob([jsonString], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -76,7 +72,6 @@ export const storageService = {
     try {
       const text = await file.text();
       const data = JSON.parse(text) as AppData;
-      // Validación básica de estructura
       if (data && Array.isArray(data.logs) && Array.isArray(data.caregivers) && data.settings) {
         return data;
       }
