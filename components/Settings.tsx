@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { AppSettings } from '../types';
-import { Download, Upload, Bell, Info, Share2, Heart, ShieldAlert, Baby, CreditCard, X, Check, AlertTriangle } from 'lucide-react';
+import { Download, Upload, Bell, Info, Share2, Heart, ShieldAlert, Baby, CreditCard, X, Check, AlertTriangle, Github } from 'lucide-react';
 
 interface SettingsProps {
   settings: AppSettings;
@@ -214,10 +214,21 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, onExpor
         </div>
       </div>
 
-      <div className="flex flex-col items-center justify-center gap-2 text-slate-300 py-4">
-        <div className="flex items-center gap-2">
-          <Info size={14} />
-          <span className="text-[10px] font-bold uppercase tracking-widest">Versión 1.0.0 Alpha</span>
+      <div className="flex flex-col items-center justify-center gap-3 text-slate-300 py-4">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Info size={14} />
+            <span className="text-[10px] font-bold uppercase tracking-widest">Versión 1.0.0 Alpha</span>
+          </div>
+          <a 
+            href="https://github.com/AbelG88/Nappy" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 hover:text-slate-500 transition-colors"
+          >
+            <Github size={14} />
+            <span className="text-[10px] font-bold uppercase tracking-widest">Código</span>
+          </a>
         </div>
         <p className="text-[9px] text-slate-300 font-medium">Hecho con ❤️ para familias en movimiento</p>
       </div>
