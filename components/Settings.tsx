@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { AppSettings } from '../types';
 import { Download, Upload, Bell, Info, Share2, Heart, ShieldAlert, Baby, CreditCard, X, Check, AlertTriangle } from 'lucide-react';
@@ -21,7 +20,6 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, onExpor
     const file = e.target.files?.[0];
     if (file) {
       setPendingFile(file);
-      // Reset input para permitir re-selección
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
@@ -188,24 +186,40 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, onExpor
         )}
       </div>
 
-      <div className="bg-blue-600 p-6 rounded-3xl text-white shadow-lg space-y-4">
+      <div className="bg-slate-50 p-6 rounded-[32px] border border-slate-200 space-y-4">
         <div className="flex items-center gap-3">
-           <Heart className="fill-white" size={24} />
-           <h3 className="font-bold text-lg">Apoya Nappy</h3>
+           <Heart className="text-rose-500 fill-rose-500" size={24} />
+           <h3 className="font-bold text-lg text-slate-800">Apoya Nappy</h3>
         </div>
-        <div className="space-y-2">
-          <a href="https://paypal.me/AbelG88" target="_blank" className="w-full bg-white text-[#0070ba] font-bold py-3 rounded-2xl flex items-center justify-center gap-2">
+        <p className="text-xs text-slate-500 leading-relaxed">
+          Nappy es una herramienta gratuita. Si te ayuda en el día a día, considera realizar una donación para mantener el proyecto vivo.
+        </p>
+        <div className="space-y-2 pt-2">
+          <a 
+            href="https://paypal.me/AbelG88" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="w-full bg-[#0070ba] hover:bg-[#005ea6] text-white font-bold py-3 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-blue-100 transition-all active:scale-95"
+          >
             <CreditCard size={18} /> PayPal
           </a>
-          <a href="https://link.mercadopago.com.ar/abelg88" target="_blank" className="w-full bg-white text-[#009ee3] font-bold py-3 rounded-2xl flex items-center justify-center gap-2">
+          <a 
+            href="https://link.mercadopago.com.ar/abelg88" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="w-full bg-[#009ee3] hover:bg-[#008cc9] text-white font-bold py-3 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-sky-100 transition-all active:scale-95"
+          >
             <CreditCard size={18} /> Mercado Pago
           </a>
         </div>
       </div>
 
-      <div className="flex justify-center items-center gap-2 text-slate-300 py-4">
-        <Info size={14} />
-        <span className="text-[10px] font-bold uppercase tracking-widest">Versión 1.0.0 Alpha</span>
+      <div className="flex flex-col items-center justify-center gap-2 text-slate-300 py-4">
+        <div className="flex items-center gap-2">
+          <Info size={14} />
+          <span className="text-[10px] font-bold uppercase tracking-widest">Versión 1.0.0 Alpha</span>
+        </div>
+        <p className="text-[9px] text-slate-300 font-medium">Hecho con ❤️ para familias en movimiento</p>
       </div>
     </div>
   );

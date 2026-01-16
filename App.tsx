@@ -8,7 +8,7 @@ import Settings from './components/Settings';
 import Onboarding from './components/Onboarding';
 import { storageService } from './services/storage';
 import { AppData, BathroomLog, Caregiver, AppSettings } from './types';
-import { Heart, X, CreditCard } from 'lucide-react';
+import { Heart, X, CreditCard, ExternalLink } from 'lucide-react';
 
 const generateId = () => Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
 
@@ -125,7 +125,7 @@ const App: React.FC = () => {
             ...prev,
             logs: [...newLogs, ...prev.logs].sort((a, b) => b.timestamp - a.timestamp),
             caregivers: [...prev.caregivers, ...newCaregivers],
-            settings: { ...prev.settings, onboardingCompleted: true } // Marcar como completo al importar
+            settings: { ...prev.settings, onboardingCompleted: true } 
           };
         });
         alert('¡Datos fusionados con éxito!');
@@ -181,14 +181,35 @@ const App: React.FC = () => {
             <div className="space-y-2">
               <h3 className="text-2xl font-black text-slate-800">¿Te gusta Nappy?</h3>
               <p className="text-sm text-slate-500 leading-relaxed px-2">
-                ¡Has completado <b>{data.logs.length}</b> registros! Tu apoyo nos ayuda a seguir mejorando esta herramienta gratuita.
+                ¡Has completado <b>{data.logs.length}</b> registros! Tu apoyo nos ayuda a seguir mejorando esta herramienta gratuita para todos.
               </p>
             </div>
             <div className="space-y-3 pt-4">
-              <a href="https://paypal.me/AbelG88" target="_blank" rel="noopener noreferrer" className="w-full bg-[#0070ba] hover:bg-[#005ea6] text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-blue-100"><CreditCard size={20} />PayPal</a>
-              <a href="https://link.mercadopago.com.ar/abelg88" target="_blank" rel="noopener noreferrer" className="w-full bg-[#009ee3] hover:bg-[#008cc9] text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-sky-100"><CreditCard size={20} />Mercado Pago</a>
+              <a 
+                href="https://paypal.me/AbelG88" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="w-full bg-[#0070ba] hover:bg-[#005ea6] text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-blue-100"
+              >
+                <CreditCard size={20} />
+                PayPal
+              </a>
+              <a 
+                href="https://link.mercadopago.com.ar/abelg88" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="w-full bg-[#009ee3] hover:bg-[#008cc9] text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-sky-100"
+              >
+                <CreditCard size={20} />
+                Mercado Pago
+              </a>
             </div>
-            <button onClick={() => setShowDonation(false)} className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] pt-2 hover:text-slate-500 transition-colors">Quizás más tarde</button>
+            <button 
+              onClick={() => setShowDonation(false)} 
+              className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] pt-2 hover:text-slate-500 transition-colors"
+            >
+              Quizás más tarde
+            </button>
           </div>
         </div>
       )}
