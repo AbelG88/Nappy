@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Upload, X } from 'lucide-react';
 import { Caregiver, Goal, Sex, TellsNeed } from '../types';
 import {
   AGE_OPTIONS,
@@ -29,11 +29,14 @@ interface ProfileWizardProps {
   isFirst: boolean;
   onComplete: (result: WizardResult) => void;
   onCancel?: () => void;
+  /** Si se pasa, la bienvenida ofrece traer el historial de otro cuidador desde un respaldo. */
+  onImport?: (file: File) => void;
 }
 
 type StepId = 'welcome' | 'name' | 'sex' | 'age' | 'goal' | 'habits' | 'caregivers' | 'done';
 
-const ProfileWizard: React.FC<ProfileWizardProps> = ({ existingCaregivers, isFirst, onComplete, onCancel }) => {
+const ProfileWizard: React.FC<ProfileWizardProps> = ({ existingCaregivers, isFirst, onComplete, onCancel, onImport }) => {
+  const importInputRef = useRef<HTMLInputElement>(null);
   const steps: StepId[] = [
     ...(isFirst ? (['welcome'] as StepId[]) : []),
     'name', 'sex', 'age', 'goal', 'habits', 'caregivers', 'done',
@@ -132,6 +135,31 @@ const ProfileWizard: React.FC<ProfileWizardProps> = ({ existingCaregivers, isFir
                 Te ayudo a seguir el proceso de dejar el pañal. Son 6 preguntas rápidas, casi todo con un toque.
               </p>
             </div>
+            {onImport && (
+              <div className="pt-2 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => importInputRef.current?.click()}
+                  className="inline-flex items-center gap-2 text-sm font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-2xl px-4 py-3 active:scale-95 transition-transform"
+                >
+                  <Upload size={16} /> Ya tengo un respaldo
+                </button>
+                <p className="text-[11px] text-slate-400 leading-snug">
+                  ¿Otro cuidador ya usa Nappy? Pedile su respaldo e importalo acá para ver el mismo historial.
+                </p>
+                <input
+                  ref={importInputRef}
+                  type="file"
+                  accept=".json,application/json"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) onImport(file);
+                    e.target.value = '';
+                  }}
+                />
+              </div>
+            )}
           </div>
         )}
 

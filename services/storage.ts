@@ -89,6 +89,65 @@ export const parseBackup = (raw: any): AppData | null => {
   return null;
 };
 
+const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/**
+ * Suma un respaldo (de otro cuidador, por ejemplo) a los datos actuales sin borrar nada.
+ * - Perfiles y cuidadores se reconocen por id o, si cada uno armó el suyo por separado, por nombre.
+ * - Los registros ya existentes (mismo id) no se duplican, así que importar dos veces es seguro.
+ */
+export const mergeData = (
+  current: AppData,
+  imported: AppData
+): { data: AppData; addedLogs: number; addedProfiles: number } => {
+  const profiles = [...current.profiles];
+  const profileMap = new Map<string, string>();
+  let addedProfiles = 0;
+  for (const p of imported.profiles) {
+    const match = profiles.find(x => x.id === p.id) ?? profiles.find(x => sameName(x.name, p.name));
+    if (match) {
+      profileMap.set(p.id, match.id);
+    } else {
+      profiles.push(p);
+      profileMap.set(p.id, p.id);
+      addedProfiles++;
+    }
+  }
+
+  const caregivers = [...current.caregivers];
+  const caregiverMap = new Map<string, string>();
+  for (const c of imported.caregivers) {
+    const match = caregivers.find(x => x.id === c.id) ?? caregivers.find(x => sameName(x.name, c.name));
+    if (match) {
+      caregiverMap.set(c.id, match.id);
+    } else {
+      caregivers.push(c);
+      caregiverMap.set(c.id, c.id);
+    }
+  }
+
+  const existingLogIds = new Set(current.logs.map(l => l.id));
+  const newLogs = imported.logs
+    .filter(l => !existingLogIds.has(l.id) && profileMap.has(l.profileId))
+    .map(l => ({
+      ...l,
+      profileId: profileMap.get(l.profileId)!,
+      caregiverId: caregiverMap.get(l.caregiverId) ?? l.caregiverId,
+    }));
+
+  return {
+    data: {
+      ...current,
+      profiles,
+      activeProfileId: current.activeProfileId ?? profiles[0]?.id ?? null,
+      caregivers,
+      logs: [...newLogs, ...current.logs].sort((a, b) => b.timestamp - a.timestamp),
+    },
+    addedLogs: newLogs.length,
+    addedProfiles,
+  };
+};
+
 export const storageService = {
   saveData: (data: AppData) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));

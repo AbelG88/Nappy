@@ -1,11 +1,15 @@
-import React, { useState, useRef } from 'react';
-import { AppSettings, Profile } from '../types';
-import { Download, Upload, Bell, Info, Share2, Heart, ShieldAlert, Baby, CreditCard, X, Check, AlertTriangle, Github, Trash2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { AppSettings, BathroomLog, Caregiver, Profile } from '../types';
+import { Download, Upload, Bell, Info, Share2, Heart, ShieldAlert, Baby, CreditCard, X, Check, AlertTriangle, Github, Trash2, FileText } from 'lucide-react';
 import { AGE_OPTIONS, GOAL_OPTIONS, SEX_OPTIONS, TELLS_OPTIONS } from '../constants';
+import { PERIOD_OPTIONS, ReportPeriod, buildReport, deliverPdf, filterByPeriod, reportFilename } from '../services/report';
 import Chip from './Chip';
 
 interface SettingsProps {
   profile: Profile;
+  /** Registros del perfil activo (para el informe). */
+  logs: BathroomLog[];
+  caregivers: Caregiver[];
   onUpdateProfile: (patch: Partial<Profile>) => void;
   /** Solo se puede eliminar un perfil si hay más de uno. */
   onDeleteProfile?: () => void;
@@ -15,8 +19,32 @@ interface SettingsProps {
   onImport: (file: File) => void;
 }
 
-const Settings: React.FC<SettingsProps> = ({ profile, onUpdateProfile, onDeleteProfile, settings, onUpdateSettings, onExport, onImport }) => {
+const Settings: React.FC<SettingsProps> = ({ profile, logs, caregivers, onUpdateProfile, onDeleteProfile, settings, onUpdateSettings, onExport, onImport }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [reportPeriod, setReportPeriod] = useState<ReportPeriod>('month');
+  const [reportBusy, setReportBusy] = useState(false);
+  const [reportError, setReportError] = useState('');
+  const reportCount = filterByPeriod(logs, reportPeriod).length;
+
+  // Precarga las librerías del PDF para que el botón responda rápido (y siga valiendo el gesto del toque al compartir).
+  useEffect(() => {
+    import('jspdf');
+    import('jspdf-autotable');
+  }, []);
+
+  const handleExportReport = async () => {
+    setReportBusy(true);
+    setReportError('');
+    try {
+      const blob = await buildReport(profile, logs, caregivers, reportPeriod);
+      await deliverPdf(blob, reportFilename(profile));
+    } catch (e) {
+      console.error('No se pudo generar el informe', e);
+      setReportError('No se pudo generar el informe. Probá de nuevo.');
+    } finally {
+      setReportBusy(false);
+    }
+  };
   const [confirmingDeleteProfile, setConfirmingDeleteProfile] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
@@ -214,9 +242,21 @@ const Settings: React.FC<SettingsProps> = ({ profile, onUpdateProfile, onDeleteP
         
         {!pendingFile ? (
           <>
-            <p className="text-xs text-slate-500">
-              No guardamos tus datos en la nube. Exporta tus datos para tener un respaldo.
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Nappy no usa la nube: los registros viven en este celular. Exportar e importar sirve para dos cosas:
             </p>
+            <ul className="text-xs text-slate-500 leading-relaxed space-y-2">
+              <li className="flex gap-2">
+                <span className="shrink-0">💾</span>
+                <span><b className="text-slate-600">Tener un respaldo</b> por si cambiás de celular o se borra la app.</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="shrink-0">🤝</span>
+                <span>
+                  <b className="text-slate-600">Compartir el historial con otros cuidadores.</b> Exportá y mandales tu archivo (por WhatsApp, por ejemplo): al importarlo, tus intentos se suman a los suyos sin borrar nada. Y al revés: pedile su respaldo a cada cuidador e importalo acá para tener todo junto. Si alguien instala Nappy por primera vez, puede importar tu archivo desde la pantalla de bienvenida.
+                </span>
+              </li>
+            </ul>
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={onExport}
@@ -268,6 +308,34 @@ const Settings: React.FC<SettingsProps> = ({ profile, onUpdateProfile, onDeleteP
             </div>
           </div>
         )}
+      </div>
+
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
+        <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+          <FileText size={18} className="text-blue-500" /> Informe para profesionales
+        </h3>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          Genera un PDF de {profile.name} con resumen, evolución por día, franjas horarias y el detalle de cada intento, para mostrarle al pediatra o a otro profesional.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {PERIOD_OPTIONS.map(o => (
+            <Chip key={o.value} selected={reportPeriod === o.value} onClick={() => setReportPeriod(o.value)}>
+              {o.label}
+            </Chip>
+          ))}
+        </div>
+        <button
+          onClick={handleExportReport}
+          disabled={reportBusy || reportCount === 0}
+          className="w-full bg-blue-500 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold py-4 rounded-2xl shadow-lg shadow-blue-100 disabled:shadow-none transition-all active:scale-95 flex items-center justify-center gap-2"
+        >
+          <FileText size={18} />
+          {reportBusy ? 'Generando...' : 'Exportar informe en PDF'}
+        </button>
+        {reportCount === 0 && (
+          <p className="text-[11px] text-slate-400 text-center">Todavía no hay registros en este período.</p>
+        )}
+        {reportError && <p className="text-[11px] text-rose-500 text-center">{reportError}</p>}
       </div>
 
       <div className="bg-slate-50 p-6 rounded-[32px] border border-slate-200 space-y-4">

@@ -6,7 +6,7 @@ import Statistics from './components/Statistics';
 import Caregivers from './components/Caregivers';
 import Settings from './components/Settings';
 import ProfileWizard, { WizardResult } from './components/ProfileWizard';
-import { storageService } from './services/storage';
+import { storageService, mergeData } from './services/storage';
 import { AppData, BathroomLog, Caregiver, AppSettings, Profile } from './types';
 import { CAREGIVER_PRESETS } from './constants';
 import { Heart, X, CreditCard } from 'lucide-react';
@@ -184,24 +184,11 @@ const App: React.FC = () => {
     try {
       const imported = await storageService.importData(file);
       if (imported) {
-        setData(prev => {
-          const existingProfileIds = new Set(prev.profiles.map(p => p.id));
-          const newProfiles = imported.profiles.filter(p => !existingProfileIds.has(p.id));
-          const existingLogIds = new Set(prev.logs.map(l => l.id));
-          const newLogs = imported.logs.filter(l => !existingLogIds.has(l.id));
-          const existingCaregiverIds = new Set(prev.caregivers.map(c => c.id));
-          const newCaregivers = imported.caregivers.filter(c => !existingCaregiverIds.has(c.id));
-          const profiles = [...prev.profiles, ...newProfiles];
-
-          return {
-            ...prev,
-            profiles,
-            activeProfileId: prev.activeProfileId ?? profiles[0]?.id ?? null,
-            logs: [...newLogs, ...prev.logs].sort((a, b) => b.timestamp - a.timestamp),
-            caregivers: [...prev.caregivers, ...newCaregivers],
-          };
-        });
-        alert('¡Datos fusionados con éxito!');
+        const { data: merged, addedLogs, addedProfiles } = mergeData(dataRef.current, imported);
+        setData(merged);
+        const parts = [`${addedLogs} ${addedLogs === 1 ? 'registro nuevo' : 'registros nuevos'}`];
+        if (addedProfiles > 0) parts.push(`${addedProfiles} ${addedProfiles === 1 ? 'perfil nuevo' : 'perfiles nuevos'}`);
+        alert(`¡Listo! Se sumaron ${parts.join(' y ')}.`);
       } else {
         alert('El archivo no es un respaldo válido de Nappy.');
       }
@@ -217,6 +204,7 @@ const App: React.FC = () => {
         isFirst
         existingCaregivers={data.caregivers}
         onComplete={handleWizardComplete}
+        onImport={handleImport}
       />
     );
   }
@@ -258,6 +246,8 @@ const App: React.FC = () => {
           <Settings
             key={activeProfile.id}
             profile={activeProfile}
+            logs={profileLogs}
+            caregivers={data.caregivers}
             onUpdateProfile={(patch) => handleUpdateProfile(activeProfile.id, patch)}
             onDeleteProfile={data.profiles.length > 1 ? handleDeleteProfile : undefined}
             settings={data.settings}
