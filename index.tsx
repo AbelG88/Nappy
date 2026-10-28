@@ -14,3 +14,12 @@ root.render(
     <App />
   </React.StrictMode>
 );
+
+// Service worker: necesario para instalar la app y para mostrar notificaciones en Android.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register(new URL('sw.js', document.baseURI).href)
+      .catch((err) => console.warn('No se pudo registrar el service worker', err));
+  });
+}

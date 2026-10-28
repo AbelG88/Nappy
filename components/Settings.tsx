@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { AppSettings, BathroomLog, Caregiver, Profile } from '../types';
-import { Download, Upload, Bell, Info, Share2, Heart, ShieldAlert, Baby, CreditCard, X, Check, AlertTriangle, Github, Trash2, FileText } from 'lucide-react';
+import { BathroomLog, Caregiver, Profile } from '../types';
+import { Download, Upload, Bell, Info, Share2, Heart, Baby, CreditCard, Github, Trash2, FileText } from 'lucide-react';
+import ReminderSettings from './ReminderSettings';
 import { AGE_OPTIONS, GOAL_OPTIONS, SEX_OPTIONS, TELLS_OPTIONS } from '../constants';
 import { PERIOD_OPTIONS, ReportPeriod, buildReport, deliverPdf, filterByPeriod, reportFilename } from '../services/report';
 import Chip from './Chip';
@@ -13,13 +14,11 @@ interface SettingsProps {
   onUpdateProfile: (patch: Partial<Profile>) => void;
   /** Solo se puede eliminar un perfil si hay más de uno. */
   onDeleteProfile?: () => void;
-  settings: AppSettings;
-  onUpdateSettings: (settings: Partial<AppSettings>) => void;
   onExport: () => void;
   onImport: (file: File) => void;
 }
 
-const Settings: React.FC<SettingsProps> = ({ profile, logs, caregivers, onUpdateProfile, onDeleteProfile, settings, onUpdateSettings, onExport, onImport }) => {
+const Settings: React.FC<SettingsProps> = ({ profile, logs, caregivers, onUpdateProfile, onDeleteProfile, onExport, onImport }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [reportPeriod, setReportPeriod] = useState<ReportPeriod>('month');
   const [reportBusy, setReportBusy] = useState(false);
@@ -47,9 +46,6 @@ const Settings: React.FC<SettingsProps> = ({ profile, logs, caregivers, onUpdate
   };
   const [confirmingDeleteProfile, setConfirmingDeleteProfile] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
-  const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
-    typeof Notification !== 'undefined' ? Notification.permission : 'default'
-  );
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -69,30 +65,6 @@ const Settings: React.FC<SettingsProps> = ({ profile, logs, caregivers, onUpdate
   const triggerImport = () => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
-    }
-  };
-
-  const requestPermission = async () => {
-    if (!("Notification" in window)) {
-      alert("Tu navegador no soporta notificaciones.");
-      return;
-    }
-    const permission = await Notification.requestPermission();
-    setNotifPermission(permission);
-    if (permission === 'granted') {
-      onUpdateSettings({ remindersEnabled: true });
-    }
-  };
-
-  const handleToggleReminders = () => {
-    if (settings.remindersEnabled) {
-      onUpdateSettings({ remindersEnabled: false });
-    } else {
-      if (notifPermission === 'granted') {
-        onUpdateSettings({ remindersEnabled: true });
-      } else {
-        requestPermission();
-      }
     }
   };
 
@@ -193,46 +165,14 @@ const Settings: React.FC<SettingsProps> = ({ profile, logs, caregivers, onUpdate
 
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-6">
         <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-          <Bell size={18} className="text-blue-500" /> Recordatorios
+          <Bell size={18} className="text-blue-500" /> Recordatorios de {profile.name}
         </h3>
-        
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="font-bold text-slate-700">Habilitar Alarmas</p>
-            <p className="text-xs text-slate-400">Notificación para ir al baño</p>
-          </div>
-          <button
-            onClick={handleToggleReminders}
-            className={`w-14 h-8 rounded-full p-1 transition-colors ${settings.remindersEnabled ? 'bg-blue-500' : 'bg-slate-200'}`}
-          >
-            <div className={`w-6 h-6 bg-white rounded-full transition-transform ${settings.remindersEnabled ? 'translate-x-6' : 'translate-x-0'}`} />
-          </button>
-        </div>
 
-        {notifPermission === 'denied' && (
-          <div className="bg-rose-50 p-4 rounded-2xl flex items-start gap-3 border border-rose-100">
-            <ShieldAlert className="text-rose-500 shrink-0 mt-0.5" size={18} />
-            <p className="text-[10px] text-rose-700 font-bold uppercase tracking-wider leading-relaxed">
-              Notificaciones bloqueadas por el sistema.
-            </p>
-          </div>
-        )}
-
-        {settings.remindersEnabled && (
-          <div className="space-y-4">
-            <label className="block text-xs font-bold text-slate-400 uppercase mb-3">Frecuencia (minutos)</label>
-            <select
-              value={settings.reminderIntervalMinutes}
-              onChange={(e) => onUpdateSettings({ reminderIntervalMinutes: parseInt(e.target.value) })}
-              className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-700 font-bold"
-            >
-              <option value={30}>Cada 30 min</option>
-              <option value={60}>Cada 1 hora</option>
-              <option value={90}>Cada 1.5 horas</option>
-              <option value={120}>Cada 2 horas</option>
-            </select>
-          </div>
-        )}
+        <ReminderSettings
+          value={profile.reminders}
+          onChange={(reminders) => onUpdateProfile({ reminders })}
+          childName={profile.name}
+        />
       </div>
 
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-6">

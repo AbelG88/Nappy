@@ -9,6 +9,29 @@ export type Goal = 'pee' | 'poop' | 'both';
 export type TellsNeed = 'yes' | 'sometimes' | 'no';
 export type Initiative = 'asked' | 'taken';
 
+export type ReminderFormat = 'events' | 'interval';
+
+export interface ReminderEvent {
+  id: string;
+  /** Ej: "Después del almuerzo". */
+  label: string;
+  /** Hora del aviso, "HH:MM" (24 h). */
+  time: string;
+  enabled: boolean;
+  /** Horario agregado a mano (se puede borrar). */
+  custom?: boolean;
+}
+
+export interface Reminders {
+  enabled: boolean;
+  /** Por horarios (después de cada evento del día) o cada cierto tiempo. */
+  format: ReminderFormat;
+  intervalMinutes: number;
+  events: ReminderEvent[];
+  /** Último día en que ya se avisó cada horario ("YYYY-MM-DD"), para no repetir. */
+  firedOn: Record<string, string>;
+}
+
 export interface Profile {
   id: string;
   name: string;
@@ -23,6 +46,7 @@ export interface Profile {
   tellsNeed: TellsNeed;
   createdAt: number;
   lastReminderSentAt: number;
+  reminders: Reminders;
 }
 
 export interface BathroomLog {
@@ -46,8 +70,6 @@ export interface Caregiver {
 }
 
 export interface AppSettings {
-  reminderIntervalMinutes: number;
-  remindersEnabled: boolean;
   lastDonationPrompt: number;
   /** Último cuidador elegido al registrar, para preseleccionarlo. */
   lastCaregiverId?: string;

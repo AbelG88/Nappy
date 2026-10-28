@@ -1,12 +1,11 @@
 import { AppData, AppSettings, BathroomLog, Caregiver, Profile } from '../types';
+import { withReminderDefaults } from './reminders';
 
 const STORAGE_KEY = 'potty_tracker_v2';
 const LEGACY_KEY = 'potty_tracker_v1';
 export const LEGACY_PROFILE_ID = 'p-legacy';
 
 const DEFAULT_SETTINGS: AppSettings = {
-  reminderIntervalMinutes: 120,
-  remindersEnabled: false,
   lastDonationPrompt: Date.now(),
 };
 
@@ -41,6 +40,10 @@ const migrateV1 = (old: any): AppData => {
         tellsNeed: 'sometimes',
         createdAt: logsRaw.length ? Math.min(...logsRaw.map(l => l.timestamp || Date.now())) : Date.now(),
         lastReminderSentAt: oldSettings.lastReminderSentAt || 0,
+        reminders: withReminderDefaults(undefined, {
+          enabled: !!oldSettings.remindersEnabled,
+          intervalMinutes: oldSettings.reminderIntervalMinutes,
+        }),
       }]
     : [];
 
@@ -54,8 +57,6 @@ const migrateV1 = (old: any): AppData => {
     caregivers,
     settings: {
       ...DEFAULT_SETTINGS,
-      reminderIntervalMinutes: oldSettings.reminderIntervalMinutes ?? DEFAULT_SETTINGS.reminderIntervalMinutes,
-      remindersEnabled: !!oldSettings.remindersEnabled,
       lastDonationPrompt: oldSettings.lastDonationPrompt ?? DEFAULT_SETTINGS.lastDonationPrompt,
     },
   };
@@ -63,7 +64,15 @@ const migrateV1 = (old: any): AppData => {
 
 const normalizeV2 = (parsed: any): AppData => {
   const base = emptyData();
-  const profiles: Profile[] = Array.isArray(parsed.profiles) ? parsed.profiles : [];
+  // Antes los recordatorios eran un ajuste global; ahora son por perfil.
+  const legacy = {
+    enabled: !!parsed.settings?.remindersEnabled,
+    intervalMinutes: parsed.settings?.reminderIntervalMinutes,
+  };
+  const profiles: Profile[] = (Array.isArray(parsed.profiles) ? parsed.profiles : []).map((p: any) => ({
+    ...p,
+    reminders: withReminderDefaults(p.reminders, legacy),
+  }));
   const activeOk = profiles.some(p => p.id === parsed.activeProfileId);
   return {
     ...base,
@@ -108,7 +117,8 @@ export const mergeData = (
     if (match) {
       profileMap.set(p.id, match.id);
     } else {
-      profiles.push(p);
+      // Los avisos arrancan apagados: el permiso de notificaciones es de cada celular y hay que darlo ahí.
+      profiles.push({ ...p, reminders: { ...p.reminders, enabled: false } });
       profileMap.set(p.id, p.id);
       addedProfiles++;
     }

@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Check, Upload, X } from 'lucide-react';
-import { Caregiver, Goal, Sex, TellsNeed } from '../types';
+import { Caregiver, Goal, Reminders, Sex, TellsNeed } from '../types';
+import { defaultReminders } from '../services/reminders';
+import ReminderSettings from './ReminderSettings';
 import {
   AGE_OPTIONS,
   CAREGIVER_PRESETS,
@@ -19,6 +21,7 @@ export interface WizardResult {
   goal: Goal;
   nightDiaper: boolean;
   tellsNeed: TellsNeed;
+  reminders: Reminders;
   /** Roles elegidos (Papá, Mamá, ...). Los que ya existan no se duplican. */
   caregiverRoles: string[];
 }
@@ -33,13 +36,13 @@ interface ProfileWizardProps {
   onImport?: (file: File) => void;
 }
 
-type StepId = 'welcome' | 'name' | 'sex' | 'age' | 'goal' | 'habits' | 'caregivers' | 'done';
+type StepId = 'welcome' | 'name' | 'sex' | 'age' | 'goal' | 'habits' | 'reminders' | 'caregivers' | 'done';
 
 const ProfileWizard: React.FC<ProfileWizardProps> = ({ existingCaregivers, isFirst, onComplete, onCancel, onImport }) => {
   const importInputRef = useRef<HTMLInputElement>(null);
   const steps: StepId[] = [
     ...(isFirst ? (['welcome'] as StepId[]) : []),
-    'name', 'sex', 'age', 'goal', 'habits', 'caregivers', 'done',
+    'name', 'sex', 'age', 'goal', 'habits', 'reminders', 'caregivers', 'done',
   ];
 
   const [stepIndex, setStepIndex] = useState(0);
@@ -49,6 +52,7 @@ const ProfileWizard: React.FC<ProfileWizardProps> = ({ existingCaregivers, isFir
   const [goal, setGoal] = useState<Goal | null>(null);
   const [nightDiaper, setNightDiaper] = useState<boolean | null>(null);
   const [tellsNeed, setTellsNeed] = useState<TellsNeed | null>(null);
+  const [reminders, setReminders] = useState<Reminders>(defaultReminders());
   const [roles, setRoles] = useState<string[]>(() =>
     CAREGIVER_PRESETS
       .filter(p => existingCaregivers.some(c => c.role === p.role || c.name === p.role))
@@ -87,11 +91,12 @@ const ProfileWizard: React.FC<ProfileWizardProps> = ({ existingCaregivers, isFir
       goal: goal ?? 'both',
       nightDiaper: nightDiaper ?? true,
       tellsNeed: tellsNeed ?? 'sometimes',
+      reminders,
       caregiverRoles: roles,
     });
   };
 
-  const showNext = step === 'welcome' || step === 'name' || step === 'habits' || step === 'caregivers';
+  const showNext = step === 'welcome' || step === 'name' || step === 'habits' || step === 'reminders' || step === 'caregivers';
   const title = name.trim() || 'tu peque';
 
   return (
@@ -123,7 +128,8 @@ const ProfileWizard: React.FC<ProfileWizardProps> = ({ existingCaregivers, isFir
         )}
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center text-center max-w-xs w-full mx-auto space-y-8 overflow-y-auto no-scrollbar">
+      {/* my-auto en los hijos: centra si entra, y si el contenido es largo (horarios) se puede scrollear desde arriba. */}
+      <div className="flex-1 flex flex-col items-center text-center max-w-sm w-full mx-auto overflow-y-auto no-scrollbar [&>*]:my-auto">
         {step === 'welcome' && (
           <div className="space-y-6 animate-in slide-in-from-bottom-8 duration-500">
             <div className="w-24 h-24 bg-blue-500 text-white rounded-[32px] flex items-center justify-center mx-auto shadow-2xl shadow-blue-200">
@@ -132,7 +138,7 @@ const ProfileWizard: React.FC<ProfileWizardProps> = ({ existingCaregivers, isFir
             <div className="space-y-2">
               <h1 className="text-3xl font-black text-slate-800 tracking-tight">¡Hola! Soy Nappy</h1>
               <p className="text-slate-500 leading-relaxed">
-                Te ayudo a seguir el proceso de dejar el pañal. Son 6 preguntas rápidas, casi todo con un toque.
+                Te ayudo a seguir el proceso de dejar el pañal. Son unas pocas preguntas rápidas, casi todo con un toque.
               </p>
             </div>
             {onImport && (
@@ -237,6 +243,16 @@ const ProfileWizard: React.FC<ProfileWizardProps> = ({ existingCaregivers, isFir
                 ))}
               </div>
             </div>
+          </div>
+        )}
+
+        {step === 'reminders' && (
+          <div className="w-full space-y-5 animate-in slide-in-from-bottom-8 duration-500 py-2">
+            <div className="text-center space-y-2">
+              <h2 className="text-2xl font-black text-slate-800">Recordatorios</h2>
+              <p className="text-slate-400 text-sm">Avisos para llevar a {title} al baño. Podés cambiarlo después en Ajustes.</p>
+            </div>
+            <ReminderSettings value={reminders} onChange={setReminders} childName={name.trim()} />
           </div>
         )}
 

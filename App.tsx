@@ -7,7 +7,9 @@ import Caregivers from './components/Caregivers';
 import Settings from './components/Settings';
 import ProfileWizard, { WizardResult } from './components/ProfileWizard';
 import { storageService, mergeData } from './services/storage';
-import { AppData, BathroomLog, Caregiver, AppSettings, Profile } from './types';
+import { AppData, BathroomLog, Caregiver, Profile } from './types';
+import { dueEvents, intervalDue, todayKey } from './services/reminders';
+import { notificationPermission, notify } from './services/notifications';
 import { CAREGIVER_PRESETS } from './constants';
 import { Heart, X, CreditCard } from 'lucide-react';
 
@@ -34,33 +36,44 @@ const App: React.FC = () => {
     [data.logs, activeProfile]
   );
 
-  // Recordatorios: uno por peque, según su último registro.
+  // Recordatorios por peque: a la hora pactada de cada momento del día, o cada cierto tiempo.
   useEffect(() => {
     const checkReminders = () => {
-      const { settings, logs, profiles } = dataRef.current;
-      if (!settings.remindersEnabled) return;
-      if (!("Notification" in window) || Notification.permission !== "granted") return;
-
+      if (notificationPermission() !== 'granted') return;
+      const { logs, profiles } = dataRef.current;
       const now = Date.now();
-      const intervalMs = settings.reminderIntervalMinutes * 60 * 1000;
 
       profiles.forEach(profile => {
-        const lastLog = logs
-          .filter(l => l.profileId === profile.id)
-          .reduce((max, l) => Math.max(max, l.timestamp), 0);
-        const lastEvent = Math.max(lastLog, profile.lastReminderSentAt, profile.createdAt);
+        const r = profile.reminders;
+        if (!r?.enabled) return;
+        const name = profile.name || 'tu peque';
 
-        if (now - lastEvent >= intervalMs) {
-          new Notification("¡Hora del baño! 🚽", {
-            body: `Es momento de llevar a ${profile.name || 'tu peque'} al baño.`,
-            icon: "favicon.svg"
+        if (r.format === 'events') {
+          const due = dueEvents(r, now);
+          if (due.length === 0) return;
+          const today = todayKey(now);
+          due.forEach(ev =>
+            notify('¡Hora del baño! 🚽', `${ev.label}: es momento de llevar a ${name} al baño.`, `${profile.id}-${ev.id}`)
+          );
+          handleUpdateProfile(profile.id, {
+            reminders: { ...r, firedOn: { ...r.firedOn, ...Object.fromEntries(due.map(e => [e.id, today])) } },
           });
-          handleUpdateProfile(profile.id, { lastReminderSentAt: Date.now() });
+        } else if (intervalDue(profile, logs, now)) {
+          notify('¡Hora del baño! 🚽', `Es momento de llevar a ${name} al baño.`, `${profile.id}-interval`);
+          handleUpdateProfile(profile.id, { lastReminderSentAt: now });
         }
       });
     };
-    const intervalId = setInterval(checkReminders, 60000);
-    return () => clearInterval(intervalId);
+
+    // Al volver a abrir la app también se revisa, por si el celular durmió el temporizador.
+    const onVisible = () => { if (document.visibilityState === 'visible') checkReminders(); };
+    checkReminders();
+    const intervalId = setInterval(checkReminders, 30000);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
   const handleUpdateProfile = (id: string, patch: Partial<Profile>) => {
@@ -81,6 +94,7 @@ const App: React.FC = () => {
       tellsNeed: result.tellsNeed,
       createdAt: Date.now(),
       lastReminderSentAt: 0,
+      reminders: result.reminders,
     };
 
     setData(prev => {
@@ -174,10 +188,6 @@ const App: React.FC = () => {
     setData(prev => ({ ...prev, caregivers: prev.caregivers.filter(c => c.id !== id) }));
   };
 
-  const handleUpdateSettings = (newSettings: Partial<AppSettings>) => {
-    setData(prev => ({ ...prev, settings: { ...prev.settings, ...newSettings } }));
-  };
-
   const handleExport = () => storageService.exportData(data);
 
   const handleImport = async (file: File) => {
@@ -250,8 +260,6 @@ const App: React.FC = () => {
             caregivers={data.caregivers}
             onUpdateProfile={(patch) => handleUpdateProfile(activeProfile.id, patch)}
             onDeleteProfile={data.profiles.length > 1 ? handleDeleteProfile : undefined}
-            settings={data.settings}
-            onUpdateSettings={handleUpdateSettings}
             onExport={handleExport}
             onImport={handleImport}
           />
