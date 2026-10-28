@@ -97,11 +97,16 @@ const History: React.FC<HistoryProps> = ({ logs, caregivers, onDeleteLog, onDele
                 <div className="flex items-center justify-between">
                   <p className="font-bold text-slate-800 text-sm">{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                   <div className={`flex items-center gap-1 text-[9px] font-black uppercase ${log.success ? 'text-green-600' : 'text-rose-600'}`}>
-                    {log.success ? 'Logrado' : 'Intento'}
+                    {log.accident ? 'Accidente' : log.success ? 'Logrado' : 'No salió'}
                   </div>
                 </div>
                 <p className="text-[10px] text-slate-400">{new Date(log.timestamp).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}</p>
-                <p className="text-[10px] text-slate-400 mt-1 font-bold">Por: {caregivers.find(c => c.id === log.caregiverId)?.name || '?'}</p>
+                <p className="text-[10px] text-slate-400 mt-1 font-bold">
+                  Con: {caregivers.find(c => c.id === log.caregiverId)?.name || '?'}
+                  {log.initiative === 'asked' && ' · Avisó solo'}
+                  {log.initiative === 'taken' && ' · Lo llevamos'}
+                </p>
+                {log.notes && <p className="text-[10px] text-slate-400 mt-0.5 italic truncate">“{log.notes}”</p>}
               </div>
 
               {/* Contenedor de botones de borrado dinámico */}

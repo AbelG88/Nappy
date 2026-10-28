@@ -1,16 +1,23 @@
 import React, { useState, useRef } from 'react';
-import { AppSettings } from '../types';
-import { Download, Upload, Bell, Info, Share2, Heart, ShieldAlert, Baby, CreditCard, X, Check, AlertTriangle, Github } from 'lucide-react';
+import { AppSettings, Profile } from '../types';
+import { Download, Upload, Bell, Info, Share2, Heart, ShieldAlert, Baby, CreditCard, X, Check, AlertTriangle, Github, Trash2 } from 'lucide-react';
+import { AGE_OPTIONS, GOAL_OPTIONS, SEX_OPTIONS, TELLS_OPTIONS } from '../constants';
+import Chip from './Chip';
 
 interface SettingsProps {
+  profile: Profile;
+  onUpdateProfile: (patch: Partial<Profile>) => void;
+  /** Solo se puede eliminar un perfil si hay más de uno. */
+  onDeleteProfile?: () => void;
   settings: AppSettings;
   onUpdateSettings: (settings: Partial<AppSettings>) => void;
   onExport: () => void;
   onImport: (file: File) => void;
 }
 
-const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, onExport, onImport }) => {
+const Settings: React.FC<SettingsProps> = ({ profile, onUpdateProfile, onDeleteProfile, settings, onUpdateSettings, onExport, onImport }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [confirmingDeleteProfile, setConfirmingDeleteProfile] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
@@ -65,18 +72,95 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, onExpor
     <div className="space-y-6">
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-6">
         <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-          <Baby size={18} className="text-blue-500" /> Perfil del Niño
+          <Baby size={18} className="text-blue-500" /> Perfil de {profile.name}
         </h3>
         <div>
-          <label className="block text-xs font-bold text-slate-400 uppercase mb-3">Nombre del Niño</label>
+          <label className="block text-xs font-bold text-slate-400 uppercase mb-3">Nombre</label>
           <input
             type="text"
-            value={settings.childName}
-            onChange={(e) => onUpdateSettings({ childName: e.target.value })}
+            value={profile.name}
+            onChange={(e) => onUpdateProfile({ name: e.target.value })}
             placeholder="Ej: Mateo, Sofía..."
             className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-700 font-bold focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
           />
         </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-400 uppercase mb-3">Nena o nene</label>
+          <div className="flex gap-2">
+            {SEX_OPTIONS.map(o => (
+              <Chip key={o.value} selected={profile.sex === o.value} onClick={() => onUpdateProfile({ sex: o.value })}>
+                {o.emoji} {o.label}
+              </Chip>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-400 uppercase mb-3">Edad</label>
+          <div className="flex flex-wrap gap-2">
+            {AGE_OPTIONS.map(o => (
+              <Chip key={o.months} selected={profile.ageMonths === o.months} onClick={() => onUpdateProfile({ ageMonths: o.months })}>
+                {o.label}
+              </Chip>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-400 uppercase mb-3">Objetivo</label>
+          <div className="flex flex-wrap gap-2">
+            {GOAL_OPTIONS.map(o => (
+              <Chip key={o.value} selected={profile.goal === o.value} onClick={() => onUpdateProfile({ goal: o.value })}>
+                {o.emoji} {o.label}
+              </Chip>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-400 uppercase mb-3">Pañal para dormir</label>
+          <div className="flex gap-2">
+            <Chip selected={profile.nightDiaper} onClick={() => onUpdateProfile({ nightDiaper: true })}>Sí</Chip>
+            <Chip selected={!profile.nightDiaper} onClick={() => onUpdateProfile({ nightDiaper: false })}>No</Chip>
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-400 uppercase mb-3">Avisa cuando tiene ganas</label>
+          <div className="flex flex-wrap gap-2">
+            {TELLS_OPTIONS.map(o => (
+              <Chip key={o.value} selected={profile.tellsNeed === o.value} onClick={() => onUpdateProfile({ tellsNeed: o.value })}>
+                {o.label}
+              </Chip>
+            ))}
+          </div>
+        </div>
+        {onDeleteProfile && (
+          !confirmingDeleteProfile ? (
+            <button
+              onClick={() => setConfirmingDeleteProfile(true)}
+              className="flex items-center gap-2 text-xs font-bold text-rose-400 active:text-rose-600"
+            >
+              <Trash2 size={14} /> Eliminar este perfil
+            </button>
+          ) : (
+            <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl space-y-3">
+              <p className="text-xs text-rose-700 font-bold">
+                Se borra el perfil de {profile.name} y todos sus registros. No se puede deshacer.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setConfirmingDeleteProfile(false)}
+                  className="flex-1 bg-white text-slate-400 font-bold py-3 rounded-xl border border-slate-200 text-xs"
+                >
+                  CANCELAR
+                </button>
+                <button
+                  onClick={() => { setConfirmingDeleteProfile(false); onDeleteProfile(); }}
+                  className="flex-1 bg-rose-600 text-white font-black py-3 rounded-xl text-xs active:scale-95 transition-transform"
+                >
+                  SÍ, ELIMINAR
+                </button>
+              </div>
+            </div>
+          )
+        )}
       </div>
 
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-6">
@@ -218,7 +302,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, onExpor
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <Info size={14} />
-            <span className="text-[10px] font-bold uppercase tracking-widest">Versión 1.0.0 Alpha</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest">Versión 1.1.0</span>
           </div>
           <a 
             href="https://github.com/AbelG88/Nappy" 

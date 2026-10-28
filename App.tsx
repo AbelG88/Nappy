@@ -1,14 +1,15 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Layout from './components/Layout';
 import Tracker from './components/Tracker';
 import History from './components/History';
 import Statistics from './components/Statistics';
 import Caregivers from './components/Caregivers';
 import Settings from './components/Settings';
-import Onboarding from './components/Onboarding';
+import ProfileWizard, { WizardResult } from './components/ProfileWizard';
 import { storageService } from './services/storage';
-import { AppData, BathroomLog, Caregiver, AppSettings } from './types';
-import { Heart, X, CreditCard, ExternalLink } from 'lucide-react';
+import { AppData, BathroomLog, Caregiver, AppSettings, Profile } from './types';
+import { CAREGIVER_PRESETS } from './constants';
+import { Heart, X, CreditCard } from 'lucide-react';
 
 const generateId = () => Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
 
@@ -16,7 +17,8 @@ const App: React.FC = () => {
   const [data, setData] = useState<AppData>(storageService.loadData());
   const [activeTab, setActiveTab] = useState('track');
   const [showDonation, setShowDonation] = useState(false);
-  
+  const [addingProfile, setAddingProfile] = useState(false);
+
   const dataRef = useRef(data);
   useEffect(() => { dataRef.current = data; }, [data]);
 
@@ -24,55 +26,121 @@ const App: React.FC = () => {
     storageService.saveData(data);
   }, [data]);
 
+  const activeProfile: Profile | undefined =
+    data.profiles.find(p => p.id === data.activeProfileId) ?? data.profiles[0];
+
+  const profileLogs = useMemo(
+    () => (activeProfile ? data.logs.filter(l => l.profileId === activeProfile.id) : []),
+    [data.logs, activeProfile]
+  );
+
+  // Recordatorios: uno por peque, según su último registro.
   useEffect(() => {
     const checkReminders = () => {
-      const { settings, logs } = dataRef.current;
-      if (!settings.remindersEnabled || !settings.onboardingCompleted) return;
+      const { settings, logs, profiles } = dataRef.current;
+      if (!settings.remindersEnabled) return;
+      if (!("Notification" in window) || Notification.permission !== "granted") return;
 
       const now = Date.now();
       const intervalMs = settings.reminderIntervalMinutes * 60 * 1000;
-      const lastLog = logs.length > 0 ? Math.max(...logs.map(l => l.timestamp)) : 0;
-      const lastEvent = Math.max(lastLog, settings.lastReminderSentAt);
-      
-      if (now - lastEvent >= intervalMs) {
-        if ("Notification" in window && Notification.permission === "granted") {
+
+      profiles.forEach(profile => {
+        const lastLog = logs
+          .filter(l => l.profileId === profile.id)
+          .reduce((max, l) => Math.max(max, l.timestamp), 0);
+        const lastEvent = Math.max(lastLog, profile.lastReminderSentAt, profile.createdAt);
+
+        if (now - lastEvent >= intervalMs) {
           new Notification("¡Hora del baño! 🚽", {
-            body: `Es momento de llevar a ${dataRef.current.settings.childName || 'tu peque'} al baño.`,
-            icon: "/favicon.ico"
+            body: `Es momento de llevar a ${profile.name || 'tu peque'} al baño.`,
+            icon: "favicon.svg"
           });
-          handleUpdateSettings({ lastReminderSentAt: Date.now() });
+          handleUpdateProfile(profile.id, { lastReminderSentAt: Date.now() });
         }
-      }
+      });
     };
     const intervalId = setInterval(checkReminders, 60000);
     return () => clearInterval(intervalId);
   }, []);
 
-  const handleAddLog = (logData: Omit<BathroomLog, 'id'>) => {
-    const newLog: BathroomLog = { ...logData, id: generateId() };
-    setData(prev => {
-      const updatedLogs = [newLog, ...prev.logs];
-      if (updatedLogs.length > 0 && updatedLogs.length % 10 === 0) {
-        setShowDonation(true);
-      }
-      return { 
-        ...prev, 
-        logs: updatedLogs,
-        settings: { ...prev.settings, lastReminderSentAt: Date.now() }
-      };
-    });
-  };
-
-  const handleCompleteOnboarding = (childName: string, caregiverName: string, caregiverRole: string) => {
+  const handleUpdateProfile = (id: string, patch: Partial<Profile>) => {
     setData(prev => ({
       ...prev,
-      caregivers: [{ id: '1', name: caregiverName, role: caregiverRole }],
-      settings: {
-        ...prev.settings,
-        childName,
-        onboardingCompleted: true
-      }
+      profiles: prev.profiles.map(p => (p.id === id ? { ...p, ...patch } : p))
     }));
+  };
+
+  const handleWizardComplete = (result: WizardResult) => {
+    const newProfile: Profile = {
+      id: generateId(),
+      name: result.name,
+      sex: result.sex,
+      ageMonths: result.ageMonths,
+      goal: result.goal,
+      nightDiaper: result.nightDiaper,
+      tellsNeed: result.tellsNeed,
+      createdAt: Date.now(),
+      lastReminderSentAt: 0,
+    };
+
+    setData(prev => {
+      const caregivers = [...prev.caregivers];
+      result.caregiverRoles.forEach(role => {
+        const exists = caregivers.some(c => c.name === role || c.role === role);
+        if (!exists) {
+          const preset = CAREGIVER_PRESETS.find(p => p.role === role);
+          caregivers.push({
+            id: generateId(),
+            name: role,
+            role: preset?.role === 'Niñera' ? 'Cuidado externo' : 'Familia',
+          });
+        }
+      });
+      if (caregivers.length === 0) {
+        caregivers.push({ id: generateId(), name: 'Cuidador', role: 'Principal' });
+      }
+      return {
+        ...prev,
+        profiles: [...prev.profiles, newProfile],
+        activeProfileId: newProfile.id,
+        caregivers,
+      };
+    });
+    setAddingProfile(false);
+    setActiveTab('track');
+  };
+
+  const handleSelectProfile = (id: string) => {
+    setData(prev => ({ ...prev, activeProfileId: id }));
+  };
+
+  const handleDeleteProfile = () => {
+    if (!activeProfile) return;
+    const id = activeProfile.id;
+    setData(prev => {
+      const profiles = prev.profiles.filter(p => p.id !== id);
+      return {
+        ...prev,
+        profiles,
+        activeProfileId: profiles[0]?.id ?? null,
+        logs: prev.logs.filter(l => l.profileId !== id),
+      };
+    });
+    setActiveTab('track');
+  };
+
+  const handleAddLog = (logData: Omit<BathroomLog, 'id'>) => {
+    const newLog: BathroomLog = { ...logData, id: generateId() };
+    const totalAfter = dataRef.current.logs.length + 1;
+    setData(prev => ({
+      ...prev,
+      logs: [newLog, ...prev.logs],
+      profiles: prev.profiles.map(p =>
+        p.id === logData.profileId ? { ...p, lastReminderSentAt: Date.now() } : p
+      ),
+      settings: { ...prev.settings, lastCaregiverId: logData.caregiverId },
+    }));
+    if (totalAfter % 10 === 0) setShowDonation(true);
   };
 
   const handleDeleteLog = useCallback((id: string) => {
@@ -82,10 +150,11 @@ const App: React.FC = () => {
     }));
   }, []);
 
+  // Borra solo los registros del peque activo.
   const handleDeleteAllLogs = useCallback(() => {
     setData(prev => ({
       ...prev,
-      logs: []
+      logs: prev.logs.filter(l => l.profileId !== prev.activeProfileId)
     }));
   }, []);
 
@@ -110,22 +179,26 @@ const App: React.FC = () => {
   };
 
   const handleExport = () => storageService.exportData(data);
-  
+
   const handleImport = async (file: File) => {
     try {
       const imported = await storageService.importData(file);
       if (imported) {
         setData(prev => {
+          const existingProfileIds = new Set(prev.profiles.map(p => p.id));
+          const newProfiles = imported.profiles.filter(p => !existingProfileIds.has(p.id));
           const existingLogIds = new Set(prev.logs.map(l => l.id));
           const newLogs = imported.logs.filter(l => !existingLogIds.has(l.id));
           const existingCaregiverIds = new Set(prev.caregivers.map(c => c.id));
           const newCaregivers = imported.caregivers.filter(c => !existingCaregiverIds.has(c.id));
+          const profiles = [...prev.profiles, ...newProfiles];
 
           return {
             ...prev,
+            profiles,
+            activeProfileId: prev.activeProfileId ?? profiles[0]?.id ?? null,
             logs: [...newLogs, ...prev.logs].sort((a, b) => b.timestamp - a.timestamp),
             caregivers: [...prev.caregivers, ...newCaregivers],
-            settings: { ...prev.settings, onboardingCompleted: true } 
           };
         });
         alert('¡Datos fusionados con éxito!');
@@ -137,40 +210,78 @@ const App: React.FC = () => {
     }
   };
 
-  if (!data.settings.onboardingCompleted) {
-    return <Onboarding onComplete={handleCompleteOnboarding} />;
+  // Sin perfiles: wizard de bienvenida (primer uso o tras borrar el último).
+  if (!activeProfile) {
+    return (
+      <ProfileWizard
+        isFirst
+        existingCaregivers={data.caregivers}
+        onComplete={handleWizardComplete}
+      />
+    );
   }
 
   return (
     <>
-      <Layout 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
+      <Layout
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
         title={activeTab === 'track' ? 'Registro' : activeTab === 'history' ? 'Historial' : activeTab === 'stats' ? 'Progreso' : activeTab === 'caregivers' ? 'Equipo' : 'Ajustes'}
+        profiles={data.profiles}
+        activeProfileId={activeProfile.id}
+        onSelectProfile={handleSelectProfile}
+        onAddProfile={() => setAddingProfile(true)}
       >
-        {activeTab === 'track' && <Tracker caregivers={data.caregivers} onAddLog={handleAddLog} />}
+        {activeTab === 'track' && (
+          <Tracker
+            key={activeProfile.id}
+            profile={activeProfile}
+            caregivers={data.caregivers}
+            logs={profileLogs}
+            lastCaregiverId={data.settings.lastCaregiverId}
+            onAddLog={handleAddLog}
+          />
+        )}
         {activeTab === 'history' && (
-          <History 
-            logs={data.logs} 
-            caregivers={data.caregivers} 
-            onDeleteLog={handleDeleteLog} 
+          <History
+            logs={profileLogs}
+            caregivers={data.caregivers}
+            onDeleteLog={handleDeleteLog}
             onDeleteAll={handleDeleteAllLogs}
           />
         )}
-        {activeTab === 'stats' && <Statistics logs={data.logs} />}
+        {activeTab === 'stats' && <Statistics logs={profileLogs} />}
         {activeTab === 'caregivers' && (
           <Caregivers caregivers={data.caregivers} onAdd={handleAddCaregiver} onUpdate={handleUpdateCaregiver} onDelete={handleDeleteCaregiver} />
         )}
         {activeTab === 'settings' && (
-          <Settings settings={data.settings} onUpdateSettings={handleUpdateSettings} onExport={handleExport} onImport={handleImport} />
+          <Settings
+            key={activeProfile.id}
+            profile={activeProfile}
+            onUpdateProfile={(patch) => handleUpdateProfile(activeProfile.id, patch)}
+            onDeleteProfile={data.profiles.length > 1 ? handleDeleteProfile : undefined}
+            settings={data.settings}
+            onUpdateSettings={handleUpdateSettings}
+            onExport={handleExport}
+            onImport={handleImport}
+          />
         )}
       </Layout>
+
+      {addingProfile && (
+        <ProfileWizard
+          isFirst={false}
+          existingCaregivers={data.caregivers}
+          onComplete={handleWizardComplete}
+          onCancel={() => setAddingProfile(false)}
+        />
+      )}
 
       {showDonation && (
         <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-300">
           <div className="bg-white rounded-[40px] p-8 max-w-sm w-full shadow-2xl relative text-center space-y-5 animate-in zoom-in-95 duration-300">
-            <button 
-              onClick={() => setShowDonation(false)} 
+            <button
+              onClick={() => setShowDonation(false)}
               className="absolute top-6 right-6 p-2 text-slate-300 hover:text-slate-500 transition-colors"
             >
               <X size={24} />
@@ -185,27 +296,27 @@ const App: React.FC = () => {
               </p>
             </div>
             <div className="space-y-3 pt-4">
-              <a 
-                href="https://paypal.me/AbelG88" 
-                target="_blank" 
-                rel="noopener noreferrer" 
+              <a
+                href="https://paypal.me/AbelG88"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-full bg-[#0070ba] hover:bg-[#005ea6] text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-blue-100"
               >
                 <CreditCard size={20} />
                 PayPal
               </a>
-              <a 
-                href="https://link.mercadopago.com.ar/abelg88" 
-                target="_blank" 
-                rel="noopener noreferrer" 
+              <a
+                href="https://link.mercadopago.com.ar/abelg88"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-full bg-[#009ee3] hover:bg-[#008cc9] text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-sky-100"
               >
                 <CreditCard size={20} />
                 Mercado Pago
               </a>
             </div>
-            <button 
-              onClick={() => setShowDonation(false)} 
+            <button
+              onClick={() => setShowDonation(false)}
               className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] pt-2 hover:text-slate-500 transition-colors"
             >
               Quizás más tarde

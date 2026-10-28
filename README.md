@@ -1,20 +1,17 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Nappy 🚽
 
-# Run and deploy your AI Studio app
+App mobile-first para acompañar el proceso de dejar los pañales. Soporta varios perfiles (uno por peque), registro rápido con chips, historial, estadísticas y cuidadores. Todo se guarda en el dispositivo (`localStorage`), sin nube.
 
-This contains everything you need to run your app locally.
+## Correr en local
 
-View your app in AI Studio: https://ai.studio/apps/drive/1h0yIIpXVRXT0GBxCS8irgE-n0SAdU-Gm
+Requiere Node.js.
 
-## Run Locally
+```
+npm install
+npm run dev
+```
 
-**Prerequisites:**  Node.js
+## Publicación
 
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+Cada push a `main` despliega a GitHub Pages con el workflow `.github/workflows/deploy.yml`.
+En el repo: **Settings → Pages → Source: GitHub Actions**.
