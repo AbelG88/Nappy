@@ -89,6 +89,9 @@ export interface AppSettings {
   donationQuietUntil?: number;
   /** Último cuidador elegido al registrar, para preseleccionarlo. */
   lastCaregiverId?: string;
+  /** Versión de los textos legales aceptada y cuándo (ms). */
+  termsAcceptedVersion?: string;
+  termsAcceptedAt?: number;
   /** La persona ya vio el aviso de "guardá tu backup" y lo aceptó. */
   backupNoticeAck?: boolean;
   /** Último backup cifrado generado (ms). */

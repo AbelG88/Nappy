@@ -9,6 +9,8 @@ import ProfileWizard, { WizardResult } from './components/ProfileWizard';
 import LockScreen, { LockMode } from './components/LockScreen';
 import BackupDialog from './components/BackupDialog';
 import PasswordPrompt from './components/PasswordPrompt';
+import LegalGate from './components/LegalGate';
+import { LEGAL_VERSION, needsLegalAcceptance } from './services/legal';
 import { storageService, mergeData, DeliveryResult } from './services/storage';
 import DonationLinks from './components/DonationLinks';
 import { donationReason, onDonated, onDonationShown, DonationReason } from './services/donation';
@@ -353,8 +355,14 @@ const MainApp: React.FC<{ initialData: AppData }> = ({ initialData }) => {
     }
   };
 
+  const legalPending = needsLegalAcceptance(data.settings.termsAcceptedVersion);
   const overlays = (
     <>
+      {legalPending && !locked && (
+        <LegalGate
+          onAccept={() => setData(prev => ({ ...prev, settings: { ...prev.settings, termsAcceptedVersion: LEGAL_VERSION, termsAcceptedAt: Date.now() } }))}
+        />
+      )}
       {locked && (
         <div className="fixed inset-0 z-[300] overflow-y-auto bg-blue-50">
           <LockScreen
@@ -380,7 +388,7 @@ const MainApp: React.FC<{ initialData: AppData }> = ({ initialData }) => {
 
   // El pedido de apoyo espera a que no haya otra ventana encima (bloqueo, aviso de backup, wizard...).
   const otherOverlay =
-    locked || !!pendingEncrypted || showBackup || addingProfile || !activeProfile || !data.settings.backupNoticeAck || backupIsDue;
+    locked || legalPending || !!pendingEncrypted || showBackup || addingProfile || !activeProfile || !data.settings.backupNoticeAck || backupIsDue;
   useEffect(() => {
     if (!donationQueued || otherOverlay || showDonation) return;
     const t = setTimeout(() => {

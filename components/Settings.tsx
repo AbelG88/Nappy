@@ -8,6 +8,8 @@ import Chip from './Chip';
 import SecretInput from './SecretInput';
 import DonationLinks from './DonationLinks';
 import ContactForm from './ContactForm';
+import LegalViewer from './LegalViewer';
+import { LegalDocId } from '../services/legal';
 import { AUTOLOCK_OPTIONS } from '../services/vault';
 import { BackupReminder } from '../types';
 import { BACKUP_FREQUENCIES, isValidEmail } from '../services/backupReminder';
@@ -41,6 +43,7 @@ const Settings: React.FC<SettingsProps> = ({
   lastBackupAt, backupReminder, onBackupReminderChange, backupEmail, onBackupEmailChange,
   onBackup, onChangePin, onLock, autoLockMinutes, onAutoLockChange,
 }) => {
+  const [legalDoc, setLegalDoc] = useState<LegalDocId | null>(null);
   const [emailDraft, setEmailDraft] = useState(backupEmail ?? '');
   const emailInvalid = emailDraft.trim() !== '' && !isValidEmail(emailDraft);
   const [changingPin, setChangingPin] = useState(false);
@@ -470,6 +473,25 @@ const Settings: React.FC<SettingsProps> = ({
 
       <ContactForm />
 
+      <div className="bg-slate-50 p-6 rounded-[32px] border border-slate-200 space-y-3">
+        <div className="flex items-center gap-3">
+          <ShieldCheck className="text-blue-500" size={24} />
+          <h3 className="font-bold text-lg text-slate-800">Legal</h3>
+        </div>
+        {([['terms', 'Términos y Condiciones'], ['privacy', 'Política de Privacidad'], ['medical', 'Aviso médico']] as [LegalDocId, string][]).map(([id, label]) => (
+          <button key={id} onClick={() => setLegalDoc(id)} className="w-full text-left bg-white border border-slate-200 rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 active:scale-[0.98] transition-transform">
+            {label}
+          </button>
+        ))}
+        <a href="./third-party-licenses.txt" target="_blank" rel="noopener noreferrer" className="block bg-white border border-slate-200 rounded-2xl px-4 py-3 text-sm font-bold text-slate-700">
+          Licencias de terceros
+        </a>
+        <a href="https://github.com/AbelG88/Nappy/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="block bg-white border border-slate-200 rounded-2xl px-4 py-3 text-sm font-bold text-slate-700">
+          Licencia de Nappy (MIT)
+        </a>
+      </div>
+      {legalDoc && <LegalViewer doc={legalDoc} onClose={() => setLegalDoc(null)} />}
+
       <div className="flex flex-col items-center justify-center gap-3 text-slate-300 py-4">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
@@ -487,6 +509,7 @@ const Settings: React.FC<SettingsProps> = ({
           </a>
         </div>
         <p className="text-[9px] text-slate-300 font-medium">Hecho con ❤️ para familias en movimiento</p>
+        <p className="text-[9px] text-slate-300 font-medium">© 2026 Abel García · MIT</p>
       </div>
     </div>
   );
