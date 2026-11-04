@@ -2,7 +2,7 @@
  * Contacto por correo: Nappy no envía nada por su cuenta. Arma el mensaje y lo abre en el programa
  * de correo de la persona, dirigido al desarrollador. Si CONTACT_EMAIL está vacío, la sección se oculta.
  */
-export const CONTACT_EMAIL = '';
+export const CONTACT_EMAIL = 'abel.edgardo.garcia.88@gmail.com';
 
 export type ContactKind = 'idea' | 'custom' | 'problem' | 'other';
 
