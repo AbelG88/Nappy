@@ -6,7 +6,11 @@ export const AGE_OPTIONS: { months: number; label: string }[] = [
   { months: 30, label: '2½ años' },
   { months: 36, label: '3 años' },
   { months: 42, label: '3½ años' },
-  { months: 48, label: '4 o más' },
+  { months: 48, label: '4 años' },
+  { months: 60, label: '5 años' },
+  { months: 72, label: '6 años' },
+  { months: 84, label: '7 años' },
+  { months: 96, label: '8 o más' },
 ];
 
 export const formatAge = (months: number): string => {
@@ -40,7 +44,7 @@ export const CAREGIVER_PRESETS: { role: string; emoji: string }[] = [
   { role: 'Mamá', emoji: '👩' },
   { role: 'Abuela', emoji: '👵' },
   { role: 'Abuelo', emoji: '👴' },
-  { role: 'Niñera', emoji: '🧑‍🍼' },
+  { role: 'Otro', emoji: '🧑' },
 ];
 
 export const avatarEmoji = (sex: Sex): string =>

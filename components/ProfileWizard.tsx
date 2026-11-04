@@ -201,7 +201,7 @@ const ProfileWizard: React.FC<ProfileWizardProps> = ({ existingCaregivers, isFir
         {step === 'age' && (
           <div className="w-full space-y-6 animate-in slide-in-from-bottom-8 duration-500">
             <h2 className="text-2xl font-black text-slate-800">¿Qué edad tiene {title}?</h2>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               {AGE_OPTIONS.map(o => (
                 <Chip key={o.months} large selected={ageMonths === o.months} onClick={() => pickAndAdvance(() => setAgeMonths(o.months))}>
                   {o.label}

@@ -9,7 +9,7 @@ App publicada: https://abelg88.github.io/Nappy/
 - **Varios perfiles** (uno por peque), con un wizard inicial: nombre, sexo (para el ícono), edad, objetivo (pis, caca o ambos), hábitos, recordatorios y cuidadores.
 - **Registro rápido con chips**: tipo, resultado (logro, intento o accidente), cuidador, iniciativa y momento. La nota es opcional.
 - **Historial y estadísticas** por peque.
-- **Cuidadores** (papá, mamá, abuela, abuelo, niñera, etc.) para elegirlos rápido al cargar un intento.
+- **Cuidadores** (papá, mamá, abuela, abuelo u otra persona) para elegirlos rápido al cargar un intento.
 - **Recordatorios por peque**, con permiso de notificaciones. Se elige un solo formato:
   - *Por horarios*: levantarse, desayuno, almuerzo, siesta, merienda y cena, con hora editable y horarios propios. Suena a la hora pactada.
   - *Cada tanto tiempo*: cada 30 min, 1, 1,5, 2 o 3 h.

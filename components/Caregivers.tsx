@@ -104,7 +104,7 @@ const Caregivers: React.FC<CaregiversProps> = ({ caregivers, onAdd, onUpdate, on
             <input
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              placeholder="Rol (ej: Familiar, Niñera)"
+              placeholder="Rol (ej: Familiar, Docente, Otro)"
               className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none"
             />
             <div className="flex gap-2 pt-2">

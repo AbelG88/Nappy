@@ -194,7 +194,7 @@ const MainApp: React.FC<{ initialData: AppData }> = ({ initialData }) => {
           caregivers.push({
             id: generateId(),
             name: role,
-            role: preset?.role === 'Niñera' ? 'Cuidado externo' : 'Familia',
+            role: preset?.role === 'Otro' ? 'Otra persona' : 'Familia',
           });
         }
       });
