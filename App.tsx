@@ -398,13 +398,14 @@ const MainApp: React.FC<{ initialData: AppData }> = ({ initialData }) => {
         <BackupDialog
           notice
           onExport={handleBackup}
+          verifySecret={verifyPin}
           onClose={() => {}}
           onAcknowledge={() => setData(prev => ({ ...prev, settings: { ...prev.settings, backupNoticeAck: true } }))}
         />
       )}
 
       {showBackup && data.settings.backupNoticeAck && (
-        <BackupDialog onExport={handleBackup} onClose={() => setShowBackup(false)} />
+        <BackupDialog onExport={handleBackup} verifySecret={verifyPin} onClose={() => setShowBackup(false)} />
       )}
 
       {overlays}

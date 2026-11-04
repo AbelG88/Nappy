@@ -12,9 +12,12 @@ interface BackupDialogProps {
   onClose: () => void;
   /** Modo aviso: se llama cuando la persona confirma que entendió. */
   onAcknowledge?: () => void;
+  /** Comprueba el PIN de la app, para usarlo también como contraseña del backup. */
+  verifySecret: (secret: string) => Promise<boolean>;
 }
 
-const BackupDialog: React.FC<BackupDialogProps> = ({ notice = false, onExport, onClose, onAcknowledge }) => {
+const BackupDialog: React.FC<BackupDialogProps> = ({ notice = false, onExport, onClose, onAcknowledge, verifySecret }) => {
+  const [samePin, setSamePin] = useState(true);
   const [pw, setPw] = useState('');
   const [pw2, setPw2] = useState('');
   const [ack, setAck] = useState(false);
@@ -25,11 +28,18 @@ const BackupDialog: React.FC<BackupDialogProps> = ({ notice = false, onExport, o
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const problem = validateSecret(pw);
-    if (problem) return setError(problem);
-    if (pw !== pw2) return setError('Las contraseñas no coinciden.');
+    if (!samePin) {
+      const problem = validateSecret(pw);
+      if (problem) return setError(problem);
+      if (pw !== pw2) return setError('Las contraseñas no coinciden.');
+    }
     setBusy(true);
     try {
+      // Con "mismo PIN" se pide el PIN una vez y se comprueba: la app no lo guarda, solo conserva la clave derivada.
+      if (samePin && !(await verifySecret(pw))) {
+        setError('Ese no es tu PIN actual.');
+        return;
+      }
       const delivered = await onExport(pw);
       if (delivered) setDone(true);
     } catch (err) {
@@ -68,15 +78,35 @@ const BackupDialog: React.FC<BackupDialogProps> = ({ notice = false, onExport, o
 
         {!done ? (
           <form onSubmit={submit} className="space-y-4">
-            <SecretInput label="Contraseña del backup" value={pw} onChange={setPw} passphrase autoComplete="new-password" />
-            <SecretInput label="Repetí la contraseña" value={pw2} onChange={setPw2} passphrase autoComplete="new-password" />
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              Puede ser la misma que tu PIN o una distinta. Anotala: si perdés el PIN y la contraseña del backup, no hay forma de recuperarlo.
-            </p>
+            <label className="flex items-start gap-3 text-[12px] text-slate-600 leading-relaxed cursor-pointer">
+              <input
+                type="checkbox"
+                checked={samePin}
+                onChange={e => { setSamePin(e.target.checked); setPw(''); setPw2(''); setError(''); }}
+                className="mt-0.5 w-4 h-4 accent-blue-600 shrink-0"
+              />
+              <span>Usar el mismo PIN / contraseña de la app</span>
+            </label>
+            {samePin ? (
+              <>
+                <SecretInput label="Tu PIN o contraseña actual" value={pw} onChange={setPw} passphrase autoComplete="current-password" />
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Lo pedimos una vez para confirmar que sos vos. Si algún día cambiás el PIN, este backup se sigue abriendo con el PIN de hoy.
+                </p>
+              </>
+            ) : (
+              <>
+                <SecretInput label="Contraseña del backup" value={pw} onChange={setPw} passphrase autoComplete="new-password" />
+                <SecretInput label="Repetí la contraseña" value={pw2} onChange={setPw2} passphrase autoComplete="new-password" />
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Anotala: si perdés el PIN y la contraseña del backup, no hay forma de recuperarlo.
+                </p>
+              </>
+            )}
             {error && <p className="text-xs font-bold text-rose-500 text-center">{error}</p>}
             <button
               type="submit"
-              disabled={busy || !pw || !pw2}
+              disabled={busy || !pw || (!samePin && !pw2)}
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-black py-4 rounded-2xl shadow-lg shadow-blue-100 active:scale-95 transition-all flex items-center justify-center gap-2"
             >
               <Download size={18} />
