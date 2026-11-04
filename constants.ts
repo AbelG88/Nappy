@@ -1,25 +1,46 @@
 import { Goal, Sex, TellsNeed } from './types';
 
-export const AGE_OPTIONS: { months: number; label: string }[] = [
-  { months: 18, label: '1½ años' },
-  { months: 24, label: '2 años' },
-  { months: 30, label: '2½ años' },
-  { months: 36, label: '3 años' },
-  { months: 42, label: '3½ años' },
-  { months: 48, label: '4 años' },
-  { months: 60, label: '5 años' },
-  { months: 72, label: '6 años' },
-  { months: 84, label: '7 años' },
-  { months: 96, label: '8 o más' },
-];
+/** Máxima edad aceptada al cargar una fecha de nacimiento. */
+export const MAX_AGE_YEARS = 18;
+
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/** Hoy como "YYYY-MM-DD" en hora local (para el máximo del selector de fecha). */
+export const todayISO = (now: Date = new Date()): string =>
+  `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+/** Edad en meses cumplidos a partir de "YYYY-MM-DD", o null si la fecha no es válida o es futura. */
+export const ageInMonths = (iso: string, now: Date = new Date()): number | null => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return null;
+  const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+  const check = new Date(y, mo - 1, d);
+  if (check.getFullYear() !== y || check.getMonth() !== mo - 1 || check.getDate() !== d) return null;
+  let months = (now.getFullYear() - y) * 12 + (now.getMonth() + 1 - mo);
+  if (now.getDate() < d) months -= 1;
+  return months < 0 ? null : months;
+};
+
+export const isValidBirthDate = (iso: string, now: Date = new Date()): boolean => {
+  const months = ageInMonths(iso, now);
+  return months !== null && months <= MAX_AGE_YEARS * 12;
+};
+
+/** Edad actual del perfil: se calcula con la fecha de nacimiento; los perfiles viejos usan la edad que tenían guardada. */
+export const profileAgeMonths = (p: { ageMonths: number; birthDate?: string }, now: Date = new Date()): number => {
+  if (p.birthDate) {
+    const m = ageInMonths(p.birthDate, now);
+    if (m !== null) return m;
+  }
+  return p.ageMonths;
+};
 
 export const formatAge = (months: number): string => {
-  const exact = AGE_OPTIONS.find(o => o.months === months);
-  if (exact) return exact.label;
   const years = Math.floor(months / 12);
   const rest = months % 12;
-  if (years === 0) return `${months} meses`;
-  return rest === 0 ? `${years} años` : `${years} años y ${rest} m`;
+  if (years === 0) return months === 1 ? '1 mes' : `${months} meses`;
+  const y = years === 1 ? '1 año' : `${years} años`;
+  return rest === 0 ? y : `${y} y ${rest} ${rest === 1 ? 'mes' : 'meses'}`;
 };
 
 export const SEX_OPTIONS: { value: Exclude<Sex, 'unknown'>; label: string; emoji: string }[] = [

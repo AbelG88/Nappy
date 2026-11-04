@@ -4,12 +4,14 @@ import { Caregiver, Goal, Reminders, Sex, TellsNeed } from '../types';
 import { defaultReminders } from '../services/reminders';
 import ReminderSettings from './ReminderSettings';
 import {
-  AGE_OPTIONS,
   CAREGIVER_PRESETS,
   GOAL_OPTIONS,
   SEX_OPTIONS,
   TELLS_OPTIONS,
+  ageInMonths,
   formatAge,
+  isValidBirthDate,
+  todayISO,
 } from '../constants';
 import Chip from './Chip';
 import Avatar from './Avatar';
@@ -17,6 +19,7 @@ import Avatar from './Avatar';
 export interface WizardResult {
   name: string;
   sex: Sex;
+  birthDate: string;
   ageMonths: number;
   goal: Goal;
   nightDiaper: boolean;
@@ -48,7 +51,8 @@ const ProfileWizard: React.FC<ProfileWizardProps> = ({ existingCaregivers, isFir
   const [stepIndex, setStepIndex] = useState(0);
   const [name, setName] = useState('');
   const [sex, setSex] = useState<Sex | null>(null);
-  const [ageMonths, setAgeMonths] = useState<number | null>(null);
+  const [birthDate, setBirthDate] = useState('');
+  const ageMonths = birthDate ? ageInMonths(birthDate) : null;
   const [goal, setGoal] = useState<Goal | null>(null);
   const [nightDiaper, setNightDiaper] = useState<boolean | null>(null);
   const [tellsNeed, setTellsNeed] = useState<TellsNeed | null>(null);
@@ -79,6 +83,7 @@ const ProfileWizard: React.FC<ProfileWizardProps> = ({ existingCaregivers, isFir
   const needsCaregiver = existingCaregivers.length === 0;
   const canContinue =
     step === 'name' ? name.trim().length > 0
+    : step === 'age' ? isValidBirthDate(birthDate)
     : step === 'habits' ? nightDiaper !== null && tellsNeed !== null
     : step === 'caregivers' ? !(needsCaregiver && roles.length === 0)
     : true;
@@ -87,6 +92,7 @@ const ProfileWizard: React.FC<ProfileWizardProps> = ({ existingCaregivers, isFir
     onComplete({
       name: name.trim() || 'Mi Peque',
       sex: sex ?? 'unknown',
+      birthDate,
       ageMonths: ageMonths ?? 30,
       goal: goal ?? 'both',
       nightDiaper: nightDiaper ?? true,
@@ -96,7 +102,7 @@ const ProfileWizard: React.FC<ProfileWizardProps> = ({ existingCaregivers, isFir
     });
   };
 
-  const showNext = step === 'welcome' || step === 'name' || step === 'habits' || step === 'reminders' || step === 'caregivers';
+  const showNext = step === 'welcome' || step === 'name' || step === 'age' || step === 'habits' || step === 'reminders' || step === 'caregivers';
   const title = name.trim() || 'tu peque';
 
   return (
@@ -200,14 +206,21 @@ const ProfileWizard: React.FC<ProfileWizardProps> = ({ existingCaregivers, isFir
 
         {step === 'age' && (
           <div className="w-full space-y-6 animate-in slide-in-from-bottom-8 duration-500">
-            <h2 className="text-2xl font-black text-slate-800">¿Qué edad tiene {title}?</h2>
-            <div className="grid grid-cols-3 gap-3">
-              {AGE_OPTIONS.map(o => (
-                <Chip key={o.months} large selected={ageMonths === o.months} onClick={() => pickAndAdvance(() => setAgeMonths(o.months))}>
-                  {o.label}
-                </Chip>
-              ))}
-            </div>
+            <h2 className="text-2xl font-black text-slate-800">¿Cuándo nació {title}?</h2>
+            <p className="text-slate-400 text-sm">
+              Con la fecha calculamos la edad solita y se va actualizando con los cumpleaños. Se guarda solo en este celular.
+            </p>
+            <input
+              type="date"
+              value={birthDate}
+              max={todayISO()}
+              onChange={(e) => setBirthDate(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && canContinue) next(); }}
+              className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 text-center text-lg font-bold text-slate-700 focus:border-blue-500 outline-none transition-all"
+            />
+            <p className="text-sm font-bold text-blue-600 min-h-[1.25rem]">
+              {ageMonths !== null && isValidBirthDate(birthDate) ? `Tiene ${formatAge(ageMonths)}` : ''}
+            </p>
           </div>
         )}
 

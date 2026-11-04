@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { BathroomLog, Caregiver, Profile } from '../types';
 import { Download, Upload, Bell, Database, Info, Share2, Heart, Baby, CreditCard, Github, Trash2, FileText, ShieldCheck, Lock } from 'lucide-react';
 import ReminderSettings from './ReminderSettings';
-import { AGE_OPTIONS, APP_VERSION, GOAL_OPTIONS, SEX_OPTIONS, TELLS_OPTIONS } from '../constants';
+import { APP_VERSION, GOAL_OPTIONS, SEX_OPTIONS, TELLS_OPTIONS, ageInMonths, formatAge, isValidBirthDate, profileAgeMonths, todayISO } from '../constants';
 import { PERIOD_OPTIONS, ReportPeriod, buildReport, deliverPdf, filterByPeriod, reportFilename } from '../services/report';
 import Chip from './Chip';
 import SecretInput from './SecretInput';
@@ -151,14 +151,22 @@ const Settings: React.FC<SettingsProps> = ({
           </div>
         </div>
         <div>
-          <label className="block text-xs font-bold text-slate-400 uppercase mb-3">Edad</label>
-          <div className="flex flex-wrap gap-2">
-            {AGE_OPTIONS.map(o => (
-              <Chip key={o.months} selected={profile.ageMonths === o.months} onClick={() => onUpdateProfile({ ageMonths: o.months })}>
-                {o.label}
-              </Chip>
-            ))}
-          </div>
+          <label className="block text-xs font-bold text-slate-400 uppercase mb-3">Fecha de nacimiento</label>
+          <input
+            type="date"
+            value={profile.birthDate ?? ''}
+            max={todayISO()}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (isValidBirthDate(v)) onUpdateProfile({ birthDate: v, ageMonths: ageInMonths(v) ?? profile.ageMonths });
+            }}
+            className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-3 text-sm font-bold text-slate-700 focus:border-blue-500 outline-none transition-all"
+          />
+          <p className="text-[11px] text-slate-400 mt-2">
+            {profile.birthDate
+              ? `Edad actual: ${formatAge(profileAgeMonths(profile))}. Se actualiza sola con los cumpleaños.`
+              : `Edad cargada: ${formatAge(profile.ageMonths)}. Cargá la fecha de nacimiento y la edad se calcula sola.`}
+          </p>
         </div>
         <div>
           <label className="block text-xs font-bold text-slate-400 uppercase mb-3">Objetivo</label>

@@ -176,6 +176,7 @@ const MainApp: React.FC<{ initialData: AppData }> = ({ initialData }) => {
       id: generateId(),
       name: result.name,
       sex: result.sex,
+      birthDate: result.birthDate,
       ageMonths: result.ageMonths,
       goal: result.goal,
       nightDiaper: result.nightDiaper,

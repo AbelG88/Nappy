@@ -1,6 +1,6 @@
 import type { jsPDF } from 'jspdf';
 import { BathroomLog, Caregiver, LogType, Profile } from '../types';
-import { GOAL_OPTIONS, TELLS_OPTIONS, formatAge } from '../constants';
+import { GOAL_OPTIONS, TELLS_OPTIONS, formatAge, profileAgeMonths } from '../constants';
 
 export type ReportPeriod = 'week' | 'month' | 'all';
 
@@ -150,7 +150,7 @@ export const buildReport = async (
   table({
     theme: 'plain',
     body: [
-      ['Edad', formatAge(profile.ageMonths), 'Sexo', sexText],
+      ['Edad', formatAge(profileAgeMonths(profile)), 'Sexo', sexText],
       ['Objetivo', goalText, 'Pañal para dormir', profile.nightDiaper ? 'Sí' : 'No'],
       ['Avisa cuando tiene ganas', tells, '', ''],
     ],

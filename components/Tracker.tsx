@@ -3,7 +3,7 @@ import { LogType, BathroomLog, Caregiver, Profile, Initiative } from '../types';
 import { Check, Droplet, Ghost, Plus, X, MessageSquare, AlertCircle } from 'lucide-react';
 import Chip from './Chip';
 import Avatar from './Avatar';
-import { formatAge } from '../constants';
+import { formatAge, profileAgeMonths } from '../constants';
 
 interface TrackerProps {
   profile: Profile;
@@ -93,7 +93,7 @@ const Tracker: React.FC<TrackerProps> = ({ profile, caregivers, logs, lastCaregi
           <Avatar sex={profile.sex} size="lg" />
           <div className="min-w-0">
             <h2 className="text-2xl font-black truncate">{profile.name}</h2>
-            <p className="text-blue-100 text-sm">{formatAge(profile.ageMonths)}</p>
+            <p className="text-blue-100 text-sm">{formatAge(profileAgeMonths(profile))}</p>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3 mt-5">

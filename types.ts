@@ -36,7 +36,9 @@ export interface Profile {
   id: string;
   name: string;
   sex: Sex;
-  /** Edad en meses (18 = 1 año y medio). */
+  /** Fecha de nacimiento "YYYY-MM-DD"; con ella la edad se calcula sola. */
+  birthDate?: string;
+  /** Edad en meses al crear el perfil. Solo se usa si no hay fecha de nacimiento (perfiles anteriores). */
   ageMonths: number;
   /** Qué se está entrenando: pis, caca o ambos. */
   goal: Goal;
