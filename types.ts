@@ -77,7 +77,16 @@ export interface BackupReminder {
 }
 
 export interface AppSettings {
+  /** Última vez que se mostró el pedido de apoyo (arranca en la fecha de instalación). */
   lastDonationPrompt: number;
+  /** Ingresos a la app desde el último pedido de apoyo. */
+  donationOpens?: number;
+  /** Cantidad de registros que había en el último pedido de apoyo. */
+  donationLogsAtPrompt?: number;
+  /** "Ya doné": no pedir hasta esta fecha (ms). */
+  donationQuietUntil?: number;
+  /** "No volver a mostrar": apagado el pedido automático (los links siguen en Ajustes). */
+  donationMuted?: boolean;
   /** Último cuidador elegido al registrar, para preseleccionarlo. */
   lastCaregiverId?: string;
   /** La persona ya vio el aviso de "guardá tu backup" y lo aceptó. */

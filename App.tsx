@@ -10,6 +10,8 @@ import LockScreen, { LockMode } from './components/LockScreen';
 import BackupDialog from './components/BackupDialog';
 import PasswordPrompt from './components/PasswordPrompt';
 import { storageService, mergeData, DeliveryResult } from './services/storage';
+import DonationLinks from './components/DonationLinks';
+import { donationReason, onDonated, onDonationMuted, onDonationShown, DonationReason } from './services/donation';
 import { backupDue, backupReminderOf, daysSinceBackup, snoozeUntilTomorrow } from './services/backupReminder';
 import { EncryptedBlob, WrongSecretError, validateSecret } from './services/crypto';
 import {
@@ -27,7 +29,7 @@ import { AppData, BackupReminder, BathroomLog, Caregiver, Profile } from './type
 import { dueEvents, intervalDue, todayKey } from './services/reminders';
 import { notificationPermission, notify } from './services/notifications';
 import { CAREGIVER_PRESETS } from './constants';
-import { Heart, X, CreditCard, ShieldAlert } from 'lucide-react';
+import { Heart, X, ShieldAlert } from 'lucide-react';
 
 const generateId = () => Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
 
@@ -39,6 +41,7 @@ const MainApp: React.FC<{ initialData: AppData }> = ({ initialData }) => {
   const [pendingEncrypted, setPendingEncrypted] = useState<EncryptedBlob | null>(null);
   const [activeTab, setActiveTab] = useState('track');
   const [showDonation, setShowDonation] = useState(false);
+  const [donationQueued, setDonationQueued] = useState<DonationReason | null>(null);
   const [addingProfile, setAddingProfile] = useState(false);
 
   const dataRef = useRef(data);
@@ -100,6 +103,18 @@ const MainApp: React.FC<{ initialData: AppData }> = ({ initialData }) => {
     lastBackupNotify.current = Date.now();
     notify('Hora de tu backup 🔒', 'Hace un tiempo que no guardás una copia de seguridad de Nappy.', 'backup');
   }, [backupIsDue, now]);
+
+  // Cada vez que se abre la app cuenta un ingreso; si ya toca, se encola el pedido de apoyo.
+  const countedOpen = useRef(false);
+  useEffect(() => {
+    if (countedOpen.current) return;
+    countedOpen.current = true;
+    const st = dataRef.current.settings;
+    const next = { ...st, donationOpens: (st.donationOpens ?? 0) + 1 };
+    setData(prev => ({ ...prev, settings: { ...prev.settings, donationOpens: next.donationOpens } }));
+    const reason = donationReason(next, dataRef.current.logs.length, Date.now());
+    if (reason) setDonationQueued(reason);
+  }, []);
 
   const activeProfile: Profile | undefined =
     data.profiles.find(p => p.id === data.activeProfileId) ?? data.profiles[0];
@@ -227,7 +242,9 @@ const MainApp: React.FC<{ initialData: AppData }> = ({ initialData }) => {
       ),
       settings: { ...prev.settings, lastCaregiverId: logData.caregiverId },
     }));
-    if (totalAfter % 10 === 0) setShowDonation(true);
+    // ¿Toca pedir apoyo? Se encola y se muestra cuando no haya otra ventana abierta.
+    const reason = donationReason(dataRef.current.settings, totalAfter, Date.now());
+    if (reason) setDonationQueued(reason);
   };
 
   const handleDeleteLog = useCallback((id: string) => {
@@ -360,6 +377,19 @@ const MainApp: React.FC<{ initialData: AppData }> = ({ initialData }) => {
     </>
   );
 
+  // El pedido de apoyo espera a que no haya otra ventana encima (bloqueo, aviso de backup, wizard...).
+  const otherOverlay =
+    locked || !!pendingEncrypted || showBackup || addingProfile || !activeProfile || !data.settings.backupNoticeAck || backupIsDue;
+  useEffect(() => {
+    if (!donationQueued || otherOverlay || showDonation) return;
+    const t = setTimeout(() => {
+      setDonationQueued(null);
+      setShowDonation(true);
+      setData(prev => ({ ...prev, settings: onDonationShown(prev.settings, prev.logs.length, Date.now()) }));
+    }, 2500);
+    return () => clearTimeout(t);
+  }, [donationQueued, otherOverlay, showDonation]);
+
   // Sin perfiles: wizard de bienvenida (primer uso o tras borrar el último).
   if (!activeProfile) {
     return (
@@ -424,6 +454,10 @@ const MainApp: React.FC<{ initialData: AppData }> = ({ initialData }) => {
             backupEmail={data.settings.backupEmail}
             onBackupEmailChange={handleBackupEmailChange}
             onBackup={() => setShowBackup(true)}
+            donationPrompts={!data.settings.donationMuted}
+            onDonationPromptsChange={(on) =>
+              setData(prev => ({ ...prev, settings: { ...prev.settings, donationMuted: !on } }))
+            }
             onChangePin={handleChangePin}
             onLock={() => setLocked(true)}
             autoLockMinutes={autoLock}
@@ -494,48 +528,50 @@ const MainApp: React.FC<{ initialData: AppData }> = ({ initialData }) => {
 
       {showDonation && (
         <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-300">
-          <div className="bg-white rounded-[40px] p-8 max-w-sm w-full shadow-2xl relative text-center space-y-5 animate-in zoom-in-95 duration-300">
+          <div className="bg-white rounded-[40px] p-7 max-w-sm w-full shadow-2xl relative text-center space-y-5 animate-in zoom-in-95 duration-300 max-h-[92vh] overflow-y-auto">
             <button
               onClick={() => setShowDonation(false)}
-              className="absolute top-6 right-6 p-2 text-slate-300 hover:text-slate-500 transition-colors"
+              className="absolute top-5 right-5 p-2 text-slate-300 hover:text-slate-500 transition-colors"
+              aria-label="Cerrar"
             >
               <X size={24} />
             </button>
-            <div className="inline-flex items-center justify-center w-24 h-24 bg-rose-500 text-white rounded-[32px] shadow-xl shadow-rose-200 animate-pulse">
-              <Heart size={48} fill="currentColor" />
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-rose-500 text-white rounded-[28px] shadow-xl shadow-rose-200">
+              <Heart size={40} fill="currentColor" />
             </div>
             <div className="space-y-2">
-              <h3 className="text-2xl font-black text-slate-800">¿Te gusta Nappy?</h3>
+              <h3 className="text-2xl font-black text-slate-800">¿Te sirve Nappy?</h3>
               <p className="text-sm text-slate-500 leading-relaxed px-2">
-                ¡Has completado <b>{data.logs.length}</b> registros! Tu apoyo nos ayuda a seguir mejorando esta herramienta gratuita para todos.
+                Ya llevás <b>{data.logs.length}</b> {data.logs.length === 1 ? 'registro' : 'registros'}. Nappy es gratis y sin publicidad; si te ayuda, un aporte me permite seguir mejorándola. Es totalmente opcional.
               </p>
             </div>
-            <div className="space-y-3 pt-4">
-              <a
-                href="https://paypal.me/AbelG88"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full bg-[#0070ba] hover:bg-[#005ea6] text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-blue-100"
+            <DonationLinks size="lg" />
+            <div className="space-y-1 pt-1">
+              <button
+                onClick={() => {
+                  setData(prev => ({ ...prev, settings: onDonated(prev.settings, Date.now()) }));
+                  setShowDonation(false);
+                }}
+                className="w-full text-[11px] font-black text-emerald-600 uppercase tracking-[0.15em] py-2"
               >
-                <CreditCard size={20} />
-                PayPal
-              </a>
-              <a
-                href="https://link.mercadopago.com.ar/abelg88"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full bg-[#009ee3] hover:bg-[#008cc9] text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-sky-100"
+                Ya doné, ¡gracias! 💚
+              </button>
+              <button
+                onClick={() => setShowDonation(false)}
+                className="w-full text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] py-1.5 hover:text-slate-500 transition-colors"
               >
-                <CreditCard size={20} />
-                Mercado Pago
-              </a>
+                Quizás más tarde
+              </button>
+              <button
+                onClick={() => {
+                  setData(prev => ({ ...prev, settings: onDonationMuted(prev.settings) }));
+                  setShowDonation(false);
+                }}
+                className="w-full text-[10px] font-bold text-slate-300 py-1.5 hover:text-slate-500 transition-colors"
+              >
+                No mostrar más este aviso
+              </button>
             </div>
-            <button
-              onClick={() => setShowDonation(false)}
-              className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] pt-2 hover:text-slate-500 transition-colors"
-            >
-              Quizás más tarde
-            </button>
           </div>
         </div>
       )}

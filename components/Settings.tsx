@@ -6,6 +6,7 @@ import { AGE_OPTIONS, GOAL_OPTIONS, SEX_OPTIONS, TELLS_OPTIONS } from '../consta
 import { PERIOD_OPTIONS, ReportPeriod, buildReport, deliverPdf, filterByPeriod, reportFilename } from '../services/report';
 import Chip from './Chip';
 import SecretInput from './SecretInput';
+import DonationLinks from './DonationLinks';
 import { AUTOLOCK_OPTIONS } from '../services/vault';
 import { BackupReminder } from '../types';
 import { BACKUP_FREQUENCIES, isValidEmail } from '../services/backupReminder';
@@ -27,6 +28,9 @@ interface SettingsProps {
   backupEmail?: string;
   onBackupEmailChange: (email: string) => void;
   onBackup: () => void;
+  /** Si el pedido de apoyo automático está activado. */
+  donationPrompts: boolean;
+  onDonationPromptsChange: (on: boolean) => void;
   /** Devuelve un mensaje de error o null si el PIN se cambió. */
   onChangePin: (current: string, next: string) => Promise<string | null>;
   onLock: () => void;
@@ -37,7 +41,7 @@ interface SettingsProps {
 const Settings: React.FC<SettingsProps> = ({
   profile, logs, caregivers, onUpdateProfile, onDeleteProfile, onExport, onImport,
   lastBackupAt, backupReminder, onBackupReminderChange, backupEmail, onBackupEmailChange,
-  onBackup, onChangePin, onLock, autoLockMinutes, onAutoLockChange,
+  onBackup, donationPrompts, onDonationPromptsChange, onChangePin, onLock, autoLockMinutes, onAutoLockChange,
 }) => {
   const [emailDraft, setEmailDraft] = useState(backupEmail ?? '');
   const emailInvalid = emailDraft.trim() !== '' && !isValidEmail(emailDraft);
@@ -455,24 +459,18 @@ const Settings: React.FC<SettingsProps> = ({
         <p className="text-xs text-slate-500 leading-relaxed">
           Nappy es una herramienta gratuita. Si te ayuda en el día a día, considera realizar una donación para mantener el proyecto vivo.
         </p>
-        <div className="space-y-2 pt-2">
-          <a 
-            href="https://paypal.me/AbelG88" 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            className="w-full bg-[#0070ba] hover:bg-[#005ea6] text-white font-bold py-3 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-blue-100 transition-all active:scale-95"
-          >
-            <CreditCard size={18} /> PayPal
-          </a>
-          <a 
-            href="https://link.mercadopago.com.ar/abelg88" 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            className="w-full bg-[#009ee3] hover:bg-[#008cc9] text-white font-bold py-3 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-sky-100 transition-all active:scale-95"
-          >
-            <CreditCard size={18} /> Mercado Pago
-          </a>
+        <div className="pt-2">
+          <DonationLinks />
         </div>
+        <label className="flex items-center justify-between gap-3 pt-3 border-t border-slate-200 cursor-pointer">
+          <span className="text-[11px] text-slate-500 leading-relaxed">Mostrar un aviso de apoyo de vez en cuando</span>
+          <input
+            type="checkbox"
+            checked={donationPrompts}
+            onChange={e => onDonationPromptsChange(e.target.checked)}
+            className="w-5 h-5 accent-blue-600 shrink-0"
+          />
+        </label>
       </div>
 
       <div className="flex flex-col items-center justify-center gap-3 text-slate-300 py-4">
