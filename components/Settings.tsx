@@ -7,6 +7,8 @@ import { PERIOD_OPTIONS, ReportPeriod, buildReport, deliverPdf, filterByPeriod, 
 import Chip from './Chip';
 import SecretInput from './SecretInput';
 import { AUTOLOCK_OPTIONS } from '../services/vault';
+import { BackupReminder } from '../types';
+import { BACKUP_FREQUENCIES, isValidEmail } from '../services/backupReminder';
 
 interface SettingsProps {
   profile: Profile;
@@ -20,6 +22,10 @@ interface SettingsProps {
   onImport: (file: File) => void;
   /** Último backup cifrado (ms), si hubo. */
   lastBackupAt?: number;
+  backupReminder: BackupReminder;
+  onBackupReminderChange: (patch: Partial<BackupReminder>) => void;
+  backupEmail?: string;
+  onBackupEmailChange: (email: string) => void;
   onBackup: () => void;
   /** Devuelve un mensaje de error o null si el PIN se cambió. */
   onChangePin: (current: string, next: string) => Promise<string | null>;
@@ -30,8 +36,11 @@ interface SettingsProps {
 
 const Settings: React.FC<SettingsProps> = ({
   profile, logs, caregivers, onUpdateProfile, onDeleteProfile, onExport, onImport,
-  lastBackupAt, onBackup, onChangePin, onLock, autoLockMinutes, onAutoLockChange,
+  lastBackupAt, backupReminder, onBackupReminderChange, backupEmail, onBackupEmailChange,
+  onBackup, onChangePin, onLock, autoLockMinutes, onAutoLockChange,
 }) => {
+  const [emailDraft, setEmailDraft] = useState(backupEmail ?? '');
+  const emailInvalid = emailDraft.trim() !== '' && !isValidEmail(emailDraft);
   const [changingPin, setChangingPin] = useState(false);
   const [curPin, setCurPin] = useState('');
   const [newPin, setNewPin] = useState('');
@@ -236,6 +245,50 @@ const Settings: React.FC<SettingsProps> = ({
           >
             <Download size={18} /> Crear backup cifrado
           </button>
+        </div>
+
+        <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-3">
+          <label className="flex items-center justify-between gap-3 cursor-pointer">
+            <span className="text-xs font-bold text-slate-600">Recordarme hacer el backup</span>
+            <input
+              type="checkbox"
+              checked={backupReminder.enabled}
+              onChange={e => onBackupReminderChange({ enabled: e.target.checked })}
+              className="w-5 h-5 accent-blue-600"
+            />
+          </label>
+          {backupReminder.enabled && (
+            <div className="flex flex-wrap gap-2">
+              {BACKUP_FREQUENCIES.map(f => (
+                <button
+                  key={f.value}
+                  onClick={() => onBackupReminderChange({ frequency: f.value })}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
+                    backupReminder.frequency === f.value ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <label className="block space-y-1.5">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mi correo para el backup (opcional)</span>
+            <input
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              value={emailDraft}
+              onChange={e => setEmailDraft(e.target.value)}
+              onBlur={() => { if (!emailInvalid) onBackupEmailChange(emailDraft); }}
+              placeholder="tu@correo.com"
+              className="w-full bg-white border-2 border-slate-100 focus:border-blue-400 outline-none rounded-2xl px-4 py-3 text-sm font-bold text-slate-700 transition-colors"
+            />
+            {emailInvalid && <span className="text-[11px] font-bold text-rose-500">Ese correo no parece válido.</span>}
+          </label>
+          <p className="text-[11px] text-slate-400 leading-relaxed">
+            Al crear el backup, la hoja de compartir del celular te deja mandarlo por correo, Drive o WhatsApp. Con tu correo cargado, después aparece un botón para abrir el mail ya armado; el archivo lo adjuntás vos.
+          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">

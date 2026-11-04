@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
-import { AlertTriangle, Check, Download, X } from 'lucide-react';
+import { AlertTriangle, Check, Download, Mail, X } from 'lucide-react';
 import { validateSecret } from '../services/crypto';
+import { DeliveryResult } from '../services/storage';
+import { backupMailto, isValidEmail } from '../services/backupReminder';
 import SecretInput from './SecretInput';
 
 interface BackupDialogProps {
   /** true = aviso obligatorio tras crear el perfil ("guardá tu backup"). */
   notice?: boolean;
   /** Genera y entrega el backup cifrado con la contraseña elegida. */
-  onExport: (password: string) => Promise<boolean>;
+  onExport: (password: string) => Promise<DeliveryResult>;
+  /** Correo propio guardado en Ajustes (para el botón "Abrir correo"). */
+  email?: string;
   /** Cierra el diálogo (en modo aviso, solo se muestra la X si ya aceptó). */
   onClose: () => void;
   /** Modo aviso: se llama cuando la persona confirma que entendió. */
@@ -16,13 +20,13 @@ interface BackupDialogProps {
   verifySecret: (secret: string) => Promise<boolean>;
 }
 
-const BackupDialog: React.FC<BackupDialogProps> = ({ notice = false, onExport, onClose, onAcknowledge, verifySecret }) => {
+const BackupDialog: React.FC<BackupDialogProps> = ({ notice = false, onExport, onClose, onAcknowledge, verifySecret, email }) => {
   const [samePin, setSamePin] = useState(true);
   const [pw, setPw] = useState('');
   const [pw2, setPw2] = useState('');
   const [ack, setAck] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState<DeliveryResult>(false);
   const [error, setError] = useState('');
 
   const submit = async (e: React.FormEvent) => {
@@ -40,8 +44,7 @@ const BackupDialog: React.FC<BackupDialogProps> = ({ notice = false, onExport, o
         setError('Ese no es tu PIN actual.');
         return;
       }
-      const delivered = await onExport(pw);
-      if (delivered) setDone(true);
+      setDone(await onExport(pw));
     } catch (err) {
       console.error(err);
       setError('No se pudo crear el backup. Probá de nuevo.');
@@ -114,11 +117,24 @@ const BackupDialog: React.FC<BackupDialogProps> = ({ notice = false, onExport, o
             </button>
           </form>
         ) : (
-          <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex gap-3 text-emerald-700">
-            <Check className="shrink-0" />
-            <p className="text-xs leading-relaxed">
-              <b>Listo.</b> Guardá el archivo en un lugar seguro y no pierdas la contraseña.
-            </p>
+          <div className="space-y-3">
+            <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex gap-3 text-emerald-700">
+              <Check className="shrink-0" />
+              <p className="text-xs leading-relaxed">
+                <b>Listo.</b>{' '}
+                {done === 'downloaded'
+                  ? 'El archivo se descargó en este dispositivo. Guardalo en un lugar seguro (Drive, tu mail) y no pierdas la contraseña.'
+                  : 'Guardá el archivo en un lugar seguro y no pierdas la contraseña.'}
+              </p>
+            </div>
+            {email && isValidEmail(email) && (
+              <a
+                href={backupMailto(email)}
+                className="w-full bg-slate-50 border border-slate-200 text-slate-600 font-bold py-3 rounded-2xl text-sm flex items-center justify-center gap-2"
+              >
+                <Mail size={16} /> Abrir correo a {email}
+              </a>
+            )}
           </div>
         )}
 

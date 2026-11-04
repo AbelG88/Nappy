@@ -69,6 +69,13 @@ export interface Caregiver {
   role: string;
 }
 
+export type BackupFrequency = 'weekly' | 'biweekly' | 'monthly';
+
+export interface BackupReminder {
+  enabled: boolean;
+  frequency: BackupFrequency;
+}
+
 export interface AppSettings {
   lastDonationPrompt: number;
   /** Último cuidador elegido al registrar, para preseleccionarlo. */
@@ -77,6 +84,14 @@ export interface AppSettings {
   backupNoticeAck?: boolean;
   /** Último backup cifrado generado (ms). */
   lastBackupAt?: number;
+  /** Cuándo aceptó el aviso inicial; sirve de punto de partida si todavía no hizo ningún backup. */
+  backupNoticeAckAt?: number;
+  /** Recordatorio periódico de backup (por defecto: activado, cada semana). */
+  backupReminder?: BackupReminder;
+  /** "Recordármelo mañana": no avisar antes de este momento (ms). */
+  backupSnoozedUntil?: number;
+  /** Correo propio al que mandarse el backup (opcional). */
+  backupEmail?: string;
 }
 
 export interface AppData {

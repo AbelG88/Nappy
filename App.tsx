@@ -9,7 +9,8 @@ import ProfileWizard, { WizardResult } from './components/ProfileWizard';
 import LockScreen, { LockMode } from './components/LockScreen';
 import BackupDialog from './components/BackupDialog';
 import PasswordPrompt from './components/PasswordPrompt';
-import { storageService, mergeData } from './services/storage';
+import { storageService, mergeData, DeliveryResult } from './services/storage';
+import { backupDue, backupReminderOf, daysSinceBackup, snoozeUntilTomorrow } from './services/backupReminder';
 import { EncryptedBlob, WrongSecretError, validateSecret } from './services/crypto';
 import {
   changePin,
@@ -22,11 +23,11 @@ import {
   vaultExists,
   verifyPin,
 } from './services/vault';
-import { AppData, BathroomLog, Caregiver, Profile } from './types';
+import { AppData, BackupReminder, BathroomLog, Caregiver, Profile } from './types';
 import { dueEvents, intervalDue, todayKey } from './services/reminders';
 import { notificationPermission, notify } from './services/notifications';
 import { CAREGIVER_PRESETS } from './constants';
-import { Heart, X, CreditCard } from 'lucide-react';
+import { Heart, X, CreditCard, ShieldAlert } from 'lucide-react';
 
 const generateId = () => Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
 
@@ -71,6 +72,34 @@ const MainApp: React.FC<{ initialData: AppData }> = ({ initialData }) => {
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, []);
+
+  // Recordatorio periódico de backup: se revisa cada minuto y al volver a la app.
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const tick = () => setNow(Date.now());
+    const id = setInterval(tick, 60000);
+    document.addEventListener('visibilitychange', tick);
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', tick); };
+  }, []);
+
+  // Quien ya aceptó el aviso antes de que existiera el recordatorio: la cuenta arranca desde hoy.
+  useEffect(() => {
+    const st = data.settings;
+    if (st.backupNoticeAck && !st.lastBackupAt && !st.backupNoticeAckAt) {
+      setData(prev => ({ ...prev, settings: { ...prev.settings, backupNoticeAckAt: Date.now() } }));
+    }
+  }, [data.settings.backupNoticeAck, data.settings.lastBackupAt, data.settings.backupNoticeAckAt]);
+
+  const backupIsDue = backupDue(data.settings, now);
+  const lastBackupNotify = useRef(0);
+  useEffect(() => {
+    // Si la app está en segundo plano y hay permiso, también se avisa con una notificación (como mucho cada 12 h).
+    if (!backupIsDue || document.visibilityState !== 'hidden') return;
+    if (notificationPermission() !== 'granted') return;
+    if (Date.now() - lastBackupNotify.current < 12 * 3600000) return;
+    lastBackupNotify.current = Date.now();
+    notify('Hora de tu backup 🔒', 'Hace un tiempo que no guardás una copia de seguridad de Nappy.', 'backup');
+  }, [backupIsDue, now]);
 
   const activeProfile: Profile | undefined =
     data.profiles.find(p => p.id === data.activeProfileId) ?? data.profiles[0];
@@ -234,12 +263,26 @@ const MainApp: React.FC<{ initialData: AppData }> = ({ initialData }) => {
 
   const handleExport = () => { storageService.exportData(data); };
 
-  const handleBackup = async (password: string): Promise<boolean> => {
+  const handleBackup = async (password: string): Promise<DeliveryResult> => {
     const delivered = await storageService.exportEncryptedBackup(dataRef.current, password);
     if (delivered) {
-      setData(prev => ({ ...prev, settings: { ...prev.settings, lastBackupAt: Date.now() } }));
+      setData(prev => ({
+        ...prev,
+        settings: { ...prev.settings, lastBackupAt: Date.now(), backupSnoozedUntil: undefined },
+      }));
     }
     return delivered;
+  };
+
+  const handleBackupReminderChange = (patch: Partial<BackupReminder>) => {
+    setData(prev => ({
+      ...prev,
+      settings: { ...prev.settings, backupReminder: { ...backupReminderOf(prev.settings), ...patch }, backupSnoozedUntil: undefined },
+    }));
+  };
+
+  const handleBackupEmailChange = (email: string) => {
+    setData(prev => ({ ...prev, settings: { ...prev.settings, backupEmail: email.trim() || undefined } }));
   };
 
   const handleChangePin = async (current: string, next: string): Promise<string | null> => {
@@ -376,6 +419,10 @@ const MainApp: React.FC<{ initialData: AppData }> = ({ initialData }) => {
             onExport={handleExport}
             onImport={handleImport}
             lastBackupAt={data.settings.lastBackupAt}
+            backupReminder={backupReminderOf(data.settings)}
+            onBackupReminderChange={handleBackupReminderChange}
+            backupEmail={data.settings.backupEmail}
+            onBackupEmailChange={handleBackupEmailChange}
             onBackup={() => setShowBackup(true)}
             onChangePin={handleChangePin}
             onLock={() => setLocked(true)}
@@ -399,13 +446,48 @@ const MainApp: React.FC<{ initialData: AppData }> = ({ initialData }) => {
           notice
           onExport={handleBackup}
           verifySecret={verifyPin}
+          email={data.settings.backupEmail}
           onClose={() => {}}
-          onAcknowledge={() => setData(prev => ({ ...prev, settings: { ...prev.settings, backupNoticeAck: true } }))}
+          onAcknowledge={() => setData(prev => ({ ...prev, settings: { ...prev.settings, backupNoticeAck: true, backupNoticeAckAt: Date.now() } }))}
         />
       )}
 
       {showBackup && data.settings.backupNoticeAck && (
-        <BackupDialog onExport={handleBackup} verifySecret={verifyPin} onClose={() => setShowBackup(false)} />
+        <BackupDialog onExport={handleBackup} verifySecret={verifyPin} email={data.settings.backupEmail} onClose={() => setShowBackup(false)} />
+      )}
+
+      {backupIsDue && data.settings.backupNoticeAck && !showBackup && !locked && !pendingEncrypted && (
+        <div className="fixed left-4 right-4 bottom-24 max-w-md mx-auto z-[90] bg-white border border-amber-200 shadow-xl rounded-3xl p-4 space-y-3 animate-in slide-in-from-bottom-4 duration-300">
+          <div className="flex gap-3 items-start">
+            <div className="shrink-0 w-10 h-10 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center">
+              <ShieldAlert size={22} />
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              <b className="text-slate-800">Toca hacer un backup.</b>{' '}
+              {(() => {
+                const d = daysSinceBackup(data.settings, now);
+                if (d === null) return 'Guardá una copia cifrada de tus datos.';
+                return data.settings.lastBackupAt
+                  ? `Pasaron ${d} ${d === 1 ? 'día' : 'días'} desde el último.`
+                  : `Todavía no hiciste ninguno (pasaron ${d} ${d === 1 ? 'día' : 'días'}).`;
+              })()}
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setData(prev => ({ ...prev, settings: { ...prev.settings, backupSnoozedUntil: snoozeUntilTomorrow(Date.now()) } }))}
+              className="flex-1 bg-white text-slate-400 font-bold py-2.5 rounded-xl border border-slate-200 text-xs"
+            >
+              MAÑANA
+            </button>
+            <button
+              onClick={() => setShowBackup(true)}
+              className="flex-1 bg-blue-600 text-white font-black py-2.5 rounded-xl text-xs shadow-md active:scale-95 transition-transform"
+            >
+              HACER BACKUP
+            </button>
+          </div>
+        </div>
       )}
 
       {overlays}

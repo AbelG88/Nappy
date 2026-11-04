@@ -160,13 +160,15 @@ export const mergeData = (
 };
 
 /** Entrega un archivo por la hoja de compartir del celular o, si no hay, como descarga. */
-const deliverFile = async (filename: string, content: string, title: string, text: string): Promise<boolean> => {
+export type DeliveryResult = 'shared' | 'downloaded' | false;
+
+const deliverFile = async (filename: string, content: string, title: string, text: string): Promise<DeliveryResult> => {
   if (navigator.share) {
     try {
       const file = new File([content], filename, { type: 'application/json' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title, text });
-        return true;
+        return 'shared';
       }
     } catch (err) {
       // El usuario cerró la hoja de compartir: no es un error, no hay que descargar de nuevo.
@@ -184,7 +186,7 @@ const deliverFile = async (filename: string, content: string, title: string, tex
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  return true;
+  return 'downloaded';
 };
 
 export type ImportedFile =
@@ -207,7 +209,7 @@ export const storageService = {
   },
 
   /** Archivo para compartir historial con otros cuidadores. NO está cifrado. */
-  exportData: async (data: AppData): Promise<boolean> => {
+  exportData: async (data: AppData): Promise<DeliveryResult> => {
     return deliverFile(
       `nappy_historial_${Date.now()}.json`,
       JSON.stringify(data, null, 2),
@@ -217,7 +219,7 @@ export const storageService = {
   },
 
   /** Backup cifrado con su propia contraseña (extensión .nappy). */
-  exportEncryptedBackup: async (data: AppData, password: string): Promise<boolean> => {
+  exportEncryptedBackup: async (data: AppData, password: string): Promise<DeliveryResult> => {
     const blob = await encryptWithSecret(password, JSON.stringify(data), 'backup');
     return deliverFile(
       `nappy_backup_${Date.now()}.nappy`,
