@@ -1,5 +1,6 @@
 import { AppData, AppSettings, BathroomLog, Caregiver, Profile } from '../types';
 import { withReminderDefaults } from './reminders';
+import { EncryptedBlob, decryptWithSecret, encryptWithSecret, isEncryptedBlob } from './crypto';
 
 const STORAGE_KEY = 'potty_tracker_v2';
 const LEGACY_KEY = 'potty_tracker_v1';
@@ -158,17 +159,45 @@ export const mergeData = (
   };
 };
 
-export const storageService = {
-  saveData: (data: AppData) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  },
+/** Entrega un archivo por la hoja de compartir del celular o, si no hay, como descarga. */
+const deliverFile = async (filename: string, content: string, title: string, text: string): Promise<boolean> => {
+  if (navigator.share) {
+    try {
+      const file = new File([content], filename, { type: 'application/json' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title, text });
+        return true;
+      }
+    } catch (err) {
+      // El usuario cerró la hoja de compartir: no es un error, no hay que descargar de nuevo.
+      if ((err as any)?.name === 'AbortError') return false;
+      console.warn('Share API falló, intentando descarga:', err);
+    }
+  }
 
+  const blob = new Blob([content], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  return true;
+};
+
+export type ImportedFile =
+  | { kind: 'plain'; data: AppData }
+  | { kind: 'encrypted'; blob: EncryptedBlob };
+
+export const storageService = {
+  /** Lee los datos en texto plano de versiones anteriores (solo para migrarlos a la bóveda cifrada). */
   loadData: (): AppData => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) return normalizeV2(JSON.parse(saved));
 
-      // Primera vez en v2: migrar lo que hubiera en v1 (sin borrar la copia vieja).
       const legacy = localStorage.getItem(LEGACY_KEY);
       if (legacy) return migrateV1(JSON.parse(legacy));
     } catch (e) {
@@ -177,44 +206,45 @@ export const storageService = {
     return emptyData();
   },
 
-  exportData: async (data: AppData) => {
-    const filename = `nappy_backup_${Date.now()}.json`;
-    const jsonString = JSON.stringify(data, null, 2);
-
-    if (navigator.share) {
-      try {
-        const file = new File([jsonString], filename, { type: 'application/json' });
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: 'Respaldo Nappy',
-            text: 'Aquí tienes mi copia de seguridad de Nappy 🚽',
-          });
-          return;
-        }
-      } catch (err) {
-        console.warn('Share API falló, intentando descarga:', err);
-      }
-    }
-
-    const blob = new Blob([jsonString], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  /** Archivo para compartir historial con otros cuidadores. NO está cifrado. */
+  exportData: async (data: AppData): Promise<boolean> => {
+    return deliverFile(
+      `nappy_historial_${Date.now()}.json`,
+      JSON.stringify(data, null, 2),
+      'Historial Nappy',
+      'Historial de Nappy para sumar a tus datos 🚽'
+    );
   },
 
-  importData: async (file: File): Promise<AppData | null> => {
+  /** Backup cifrado con su propia contraseña (extensión .nappy). */
+  exportEncryptedBackup: async (data: AppData, password: string): Promise<boolean> => {
+    const blob = await encryptWithSecret(password, JSON.stringify(data), 'backup');
+    return deliverFile(
+      `nappy_backup_${Date.now()}.nappy`,
+      JSON.stringify(blob),
+      'Backup Nappy',
+      'Backup cifrado de Nappy 🔒 (necesitás la contraseña del backup para abrirlo)'
+    );
+  },
+
+  /** Lee un archivo y dice si es un respaldo común o uno cifrado (que todavía hay que abrir con contraseña). */
+  importData: async (file: File): Promise<ImportedFile | null> => {
     try {
-      const text = await file.text();
-      return parseBackup(JSON.parse(text));
+      const parsed = JSON.parse(await file.text());
+      if (isEncryptedBlob(parsed)) {
+        return parsed.purpose === 'backup' ? { kind: 'encrypted', blob: parsed } : null;
+      }
+      const data = parseBackup(parsed);
+      return data ? { kind: 'plain', data } : null;
     } catch (e) {
       console.error('Import failed', e);
       return null;
     }
+  },
+
+  /** Abre un backup cifrado con su contraseña. Lanza WrongSecretError si no coincide. */
+  openEncryptedBackup: async (blob: EncryptedBlob, password: string): Promise<AppData | null> => {
+    const text = await decryptWithSecret(password, blob);
+    return parseBackup(JSON.parse(text));
   },
 };

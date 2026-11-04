@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { BathroomLog, Caregiver, Profile } from '../types';
-import { Download, Upload, Bell, Info, Share2, Heart, Baby, CreditCard, Github, Trash2, FileText } from 'lucide-react';
+import { Download, Upload, Bell, Info, Share2, Heart, Baby, CreditCard, Github, Trash2, FileText, ShieldCheck, Lock } from 'lucide-react';
 import ReminderSettings from './ReminderSettings';
 import { AGE_OPTIONS, GOAL_OPTIONS, SEX_OPTIONS, TELLS_OPTIONS } from '../constants';
 import { PERIOD_OPTIONS, ReportPeriod, buildReport, deliverPdf, filterByPeriod, reportFilename } from '../services/report';
 import Chip from './Chip';
+import SecretInput from './SecretInput';
+import { AUTOLOCK_OPTIONS } from '../services/vault';
 
 interface SettingsProps {
   profile: Profile;
@@ -16,9 +18,52 @@ interface SettingsProps {
   onDeleteProfile?: () => void;
   onExport: () => void;
   onImport: (file: File) => void;
+  /** Último backup cifrado (ms), si hubo. */
+  lastBackupAt?: number;
+  onBackup: () => void;
+  /** Devuelve un mensaje de error o null si el PIN se cambió. */
+  onChangePin: (current: string, next: string) => Promise<string | null>;
+  onLock: () => void;
+  autoLockMinutes: number;
+  onAutoLockChange: (minutes: number) => void;
 }
 
-const Settings: React.FC<SettingsProps> = ({ profile, logs, caregivers, onUpdateProfile, onDeleteProfile, onExport, onImport }) => {
+const Settings: React.FC<SettingsProps> = ({
+  profile, logs, caregivers, onUpdateProfile, onDeleteProfile, onExport, onImport,
+  lastBackupAt, onBackup, onChangePin, onLock, autoLockMinutes, onAutoLockChange,
+}) => {
+  const [changingPin, setChangingPin] = useState(false);
+  const [curPin, setCurPin] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [newPin2, setNewPin2] = useState('');
+  const [pinMsg, setPinMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [pinBusy, setPinBusy] = useState(false);
+
+  const submitChangePin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPin !== newPin2) return setPinMsg({ ok: false, text: 'El PIN nuevo no coincide en las dos casillas.' });
+    setPinBusy(true);
+    setPinMsg(null);
+    try {
+      const problem = await onChangePin(curPin, newPin);
+      if (problem) {
+        setPinMsg({ ok: false, text: problem });
+      } else {
+        setPinMsg({ ok: true, text: 'Listo: el PIN se cambió. Si tenés backups viejos, siguen abriéndose con su propia contraseña.' });
+        setChangingPin(false);
+        setCurPin(''); setNewPin(''); setNewPin2('');
+      }
+    } catch {
+      setPinMsg({ ok: false, text: 'No se pudo cambiar el PIN. Probá de nuevo.' });
+    } finally {
+      setPinBusy(false);
+    }
+  };
+
+  const backupLabel = lastBackupAt
+    ? `Último backup: ${new Date(lastBackupAt).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}`
+    : 'Todavía no hiciste ningún backup';
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [reportPeriod, setReportPeriod] = useState<ReportPeriod>('month');
   const [reportBusy, setReportBusy] = useState(false);
@@ -175,6 +220,77 @@ const Settings: React.FC<SettingsProps> = ({ profile, logs, caregivers, onUpdate
         />
       </div>
 
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-5">
+        <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+          <ShieldCheck size={18} className="text-blue-500" /> Seguridad y backup
+        </h3>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          Tus datos están cifrados en este celular con tu PIN. El backup cifrado (.nappy) es tu red de seguridad: sin él, olvidar el PIN o perder el celular significa perder todo.
+        </p>
+
+        <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-3">
+          <p className={`text-[11px] font-bold ${lastBackupAt ? 'text-slate-500' : 'text-amber-600'}`}>{backupLabel}</p>
+          <button
+            onClick={onBackup}
+            className="w-full bg-blue-600 text-white font-black py-3.5 rounded-2xl text-sm shadow-md shadow-blue-100 active:scale-95 transition-all flex items-center justify-center gap-2"
+          >
+            <Download size={18} /> Crear backup cifrado
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={onLock}
+            className="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-50 border border-slate-100 text-slate-600 active:bg-blue-50 transition-all gap-2"
+          >
+            <Lock size={22} className="text-blue-500" />
+            <span className="text-xs font-bold uppercase">Bloquear ahora</span>
+          </button>
+          <button
+            onClick={() => { setChangingPin(c => !c); setPinMsg(null); }}
+            className="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-50 border border-slate-100 text-slate-600 active:bg-indigo-50 transition-all gap-2"
+          >
+            <ShieldCheck size={22} className="text-indigo-500" />
+            <span className="text-xs font-bold uppercase">Cambiar PIN</span>
+          </button>
+        </div>
+
+        {changingPin && (
+          <form onSubmit={submitChangePin} className="space-y-3 bg-blue-50 border-2 border-dashed border-blue-200 rounded-2xl p-4">
+            <SecretInput label="PIN actual" value={curPin} onChange={setCurPin} passphrase autoComplete="current-password" />
+            <SecretInput label="PIN o contraseña nuevos (mín. 6)" value={newPin} onChange={setNewPin} passphrase autoComplete="new-password" />
+            <SecretInput label="Repetí el nuevo" value={newPin2} onChange={setNewPin2} passphrase autoComplete="new-password" />
+            <button
+              type="submit"
+              disabled={pinBusy || !curPin || !newPin || !newPin2}
+              className="w-full bg-blue-600 disabled:opacity-50 text-white font-black py-3 rounded-xl text-xs active:scale-95 transition-all"
+            >
+              {pinBusy ? 'CAMBIANDO…' : 'CAMBIAR PIN'}
+            </button>
+          </form>
+        )}
+        {pinMsg && (
+          <p className={`text-xs font-bold ${pinMsg.ok ? 'text-emerald-600' : 'text-rose-500'}`}>{pinMsg.text}</p>
+        )}
+
+        <div className="space-y-2">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pedir PIN al volver a la app</p>
+          <div className="flex flex-wrap gap-2">
+            {AUTOLOCK_OPTIONS.map(m => (
+              <button
+                key={m}
+                onClick={() => onAutoLockChange(m)}
+                className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
+                  autoLockMinutes === m ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200'
+                }`}
+              >
+                {m === 0 ? 'Nunca' : `${m} min`}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-6">
         <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
           <Share2 size={18} className="text-blue-500" /> Datos y Sincronización
@@ -188,12 +304,12 @@ const Settings: React.FC<SettingsProps> = ({ profile, logs, caregivers, onUpdate
             <ul className="text-xs text-slate-500 leading-relaxed space-y-2">
               <li className="flex gap-2">
                 <span className="shrink-0">💾</span>
-                <span><b className="text-slate-600">Tener un respaldo</b> por si cambiás de celular o se borra la app.</span>
+                <span><b className="text-slate-600">Tener un respaldo</b> por si cambiás de celular o se borra la app: usá el backup cifrado de arriba.</span>
               </li>
               <li className="flex gap-2">
                 <span className="shrink-0">🤝</span>
                 <span>
-                  <b className="text-slate-600">Compartir el historial con otros cuidadores.</b> Exportá y mandales tu archivo (por WhatsApp, por ejemplo): al importarlo, tus intentos se suman a los suyos sin borrar nada. Y al revés: pedile su respaldo a cada cuidador e importalo acá para tener todo junto. Si alguien instala Nappy por primera vez, puede importar tu archivo desde la pantalla de bienvenida.
+                  <b className="text-slate-600">Compartir el historial con otros cuidadores.</b> Exportá y mandales tu archivo (por WhatsApp, por ejemplo): al importarlo, tus intentos se suman a los suyos sin borrar nada. Y al revés: pedile su respaldo a cada cuidador e importalo acá para tener todo junto. Si alguien instala Nappy por primera vez, puede importar tu archivo desde la pantalla de bienvenida. <b className="text-amber-600">Ojo: este archivo de historial no va cifrado</b>, mandalo solo a personas de confianza.
                 </span>
               </li>
             </ul>
@@ -203,7 +319,7 @@ const Settings: React.FC<SettingsProps> = ({ profile, logs, caregivers, onUpdate
                 className="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-50 border border-slate-100 text-slate-600 active:bg-blue-50 active:text-blue-600 transition-all gap-2"
               >
                 <Download size={24} className="text-blue-500" />
-                <span className="text-xs font-bold uppercase">Exportar</span>
+                <span className="text-xs font-bold uppercase">Compartir historial</span>
               </button>
               
               <button
@@ -215,7 +331,7 @@ const Settings: React.FC<SettingsProps> = ({ profile, logs, caregivers, onUpdate
                 <input 
                   type="file" 
                   ref={fileInputRef}
-                  accept=".json" 
+                  accept=".json,.nappy" 
                   onChange={handleFileChange} 
                   className="hidden" 
                 />

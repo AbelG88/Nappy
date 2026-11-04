@@ -73,6 +73,10 @@ export interface AppSettings {
   lastDonationPrompt: number;
   /** Último cuidador elegido al registrar, para preseleccionarlo. */
   lastCaregiverId?: string;
+  /** La persona ya vio el aviso de "guardá tu backup" y lo aceptó. */
+  backupNoticeAck?: boolean;
+  /** Último backup cifrado generado (ms). */
+  lastBackupAt?: number;
 }
 
 export interface AppData {

@@ -6,7 +6,22 @@ import Statistics from './components/Statistics';
 import Caregivers from './components/Caregivers';
 import Settings from './components/Settings';
 import ProfileWizard, { WizardResult } from './components/ProfileWizard';
+import LockScreen, { LockMode } from './components/LockScreen';
+import BackupDialog from './components/BackupDialog';
+import PasswordPrompt from './components/PasswordPrompt';
 import { storageService, mergeData } from './services/storage';
+import { EncryptedBlob, WrongSecretError, validateSecret } from './services/crypto';
+import {
+  changePin,
+  getAutoLockMinutes,
+  hasPlainData,
+  requestPersistentStorage,
+  saveVault,
+  setAutoLockMinutes,
+  setSecretKind,
+  vaultExists,
+  verifyPin,
+} from './services/vault';
 import { AppData, BathroomLog, Caregiver, Profile } from './types';
 import { dueEvents, intervalDue, todayKey } from './services/reminders';
 import { notificationPermission, notify } from './services/notifications';
@@ -15,8 +30,12 @@ import { Heart, X, CreditCard } from 'lucide-react';
 
 const generateId = () => Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
 
-const App: React.FC = () => {
-  const [data, setData] = useState<AppData>(storageService.loadData());
+const MainApp: React.FC<{ initialData: AppData }> = ({ initialData }) => {
+  const [data, setData] = useState<AppData>(initialData);
+  const [locked, setLocked] = useState(false);
+  const [autoLock, setAutoLock] = useState<number>(getAutoLockMinutes());
+  const [showBackup, setShowBackup] = useState(false);
+  const [pendingEncrypted, setPendingEncrypted] = useState<EncryptedBlob | null>(null);
   const [activeTab, setActiveTab] = useState('track');
   const [showDonation, setShowDonation] = useState(false);
   const [addingProfile, setAddingProfile] = useState(false);
@@ -24,9 +43,34 @@ const App: React.FC = () => {
   const dataRef = useRef(data);
   useEffect(() => { dataRef.current = data; }, [data]);
 
+  // Guardado cifrado con una pequeña espera, así varios cambios seguidos se guardan juntos.
   useEffect(() => {
-    storageService.saveData(data);
+    const t = setTimeout(() => { saveVault(data); }, 300);
+    return () => clearTimeout(t);
   }, [data]);
+
+  // Pide al navegador que no borre los datos de Nappy si falta espacio.
+  useEffect(() => { requestPersistentStorage(); }, []);
+
+  // Al pasar a segundo plano se guarda en el momento; al volver, si pasó mucho tiempo, se pide el PIN.
+  // La pantalla de bloqueo va por encima y la app sigue viva debajo, así los recordatorios siguen funcionando.
+  const hiddenAt = useRef<number | null>(null);
+  const autoLockRef = useRef(autoLock);
+  useEffect(() => { autoLockRef.current = autoLock; }, [autoLock]);
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenAt.current = Date.now();
+        saveVault(dataRef.current);
+      } else {
+        const mins = autoLockRef.current;
+        if (hiddenAt.current && mins > 0 && Date.now() - hiddenAt.current >= mins * 60000) setLocked(true);
+        hiddenAt.current = null;
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
 
   const activeProfile: Profile | undefined =
     data.profiles.find(p => p.id === data.activeProfileId) ?? data.profiles[0];
@@ -188,34 +232,103 @@ const App: React.FC = () => {
     setData(prev => ({ ...prev, caregivers: prev.caregivers.filter(c => c.id !== id) }));
   };
 
-  const handleExport = () => storageService.exportData(data);
+  const handleExport = () => { storageService.exportData(data); };
+
+  const handleBackup = async (password: string): Promise<boolean> => {
+    const delivered = await storageService.exportEncryptedBackup(dataRef.current, password);
+    if (delivered) {
+      setData(prev => ({ ...prev, settings: { ...prev.settings, lastBackupAt: Date.now() } }));
+    }
+    return delivered;
+  };
+
+  const handleChangePin = async (current: string, next: string): Promise<string | null> => {
+    const problem = validateSecret(next);
+    if (problem) return problem;
+    if (!(await verifyPin(current))) return 'El PIN actual no es correcto.';
+    await changePin(next, dataRef.current);
+    setSecretKind(/^\d+$/.test(next) ? 'pin' : 'text');
+    return null;
+  };
+
+  const handleAutoLockChange = (minutes: number) => {
+    setAutoLockMinutes(minutes);
+    setAutoLock(minutes);
+  };
+
+  const mergeImported = (imported: AppData) => {
+    const { data: merged, addedLogs, addedProfiles } = mergeData(dataRef.current, imported);
+    setData(merged);
+    const parts = [`${addedLogs} ${addedLogs === 1 ? 'registro nuevo' : 'registros nuevos'}`];
+    if (addedProfiles > 0) parts.push(`${addedProfiles} ${addedProfiles === 1 ? 'perfil nuevo' : 'perfiles nuevos'}`);
+    alert(`¡Listo! Se sumaron ${parts.join(' y ')}.`);
+  };
 
   const handleImport = async (file: File) => {
     try {
-      const imported = await storageService.importData(file);
-      if (imported) {
-        const { data: merged, addedLogs, addedProfiles } = mergeData(dataRef.current, imported);
-        setData(merged);
-        const parts = [`${addedLogs} ${addedLogs === 1 ? 'registro nuevo' : 'registros nuevos'}`];
-        if (addedProfiles > 0) parts.push(`${addedProfiles} ${addedProfiles === 1 ? 'perfil nuevo' : 'perfiles nuevos'}`);
-        alert(`¡Listo! Se sumaron ${parts.join(' y ')}.`);
-      } else {
+      const res = await storageService.importData(file);
+      if (!res) {
         alert('El archivo no es un respaldo válido de Nappy.');
+      } else if (res.kind === 'encrypted') {
+        setPendingEncrypted(res.blob);
+      } else {
+        mergeImported(res.data);
       }
     } catch (e) {
       alert('Error al importar el archivo.');
     }
   };
 
+  const openEncryptedImport = async (password: string): Promise<string | null> => {
+    if (!pendingEncrypted) return null;
+    try {
+      const imported = await storageService.openEncryptedBackup(pendingEncrypted, password);
+      if (!imported) return 'El backup no tiene un formato válido.';
+      setPendingEncrypted(null);
+      mergeImported(imported);
+      return null;
+    } catch (e) {
+      return e instanceof WrongSecretError ? 'Contraseña incorrecta.' : 'No se pudo abrir el backup.';
+    }
+  };
+
+  const overlays = (
+    <>
+      {locked && (
+        <div className="fixed inset-0 z-[300] overflow-y-auto bg-blue-50">
+          <LockScreen
+            mode="unlock"
+            onUnlocked={(restoredData, source) => {
+              // Si se restauró un backup o se empezó de cero, esos datos reemplazan a los de pantalla.
+              if (source !== 'unlock') setData(restoredData);
+              setLocked(false);
+            }}
+          />
+        </div>
+      )}
+      {pendingEncrypted && (
+        <PasswordPrompt
+          title="Backup cifrado"
+          description="Ingresá la contraseña de ese backup para sumar sus datos a los tuyos."
+          onSubmit={openEncryptedImport}
+          onCancel={() => setPendingEncrypted(null)}
+        />
+      )}
+    </>
+  );
+
   // Sin perfiles: wizard de bienvenida (primer uso o tras borrar el último).
   if (!activeProfile) {
     return (
-      <ProfileWizard
-        isFirst
-        existingCaregivers={data.caregivers}
-        onComplete={handleWizardComplete}
-        onImport={handleImport}
-      />
+      <>
+        <ProfileWizard
+          isFirst
+          existingCaregivers={data.caregivers}
+          onComplete={handleWizardComplete}
+          onImport={handleImport}
+        />
+        {overlays}
+      </>
     );
   }
 
@@ -262,6 +375,12 @@ const App: React.FC = () => {
             onDeleteProfile={data.profiles.length > 1 ? handleDeleteProfile : undefined}
             onExport={handleExport}
             onImport={handleImport}
+            lastBackupAt={data.settings.lastBackupAt}
+            onBackup={() => setShowBackup(true)}
+            onChangePin={handleChangePin}
+            onLock={() => setLocked(true)}
+            autoLockMinutes={autoLock}
+            onAutoLockChange={handleAutoLockChange}
           />
         )}
       </Layout>
@@ -274,6 +393,21 @@ const App: React.FC = () => {
           onCancel={() => setAddingProfile(false)}
         />
       )}
+
+      {!data.settings.backupNoticeAck && (
+        <BackupDialog
+          notice
+          onExport={handleBackup}
+          onClose={() => {}}
+          onAcknowledge={() => setData(prev => ({ ...prev, settings: { ...prev.settings, backupNoticeAck: true } }))}
+        />
+      )}
+
+      {showBackup && data.settings.backupNoticeAck && (
+        <BackupDialog onExport={handleBackup} onClose={() => setShowBackup(false)} />
+      )}
+
+      {overlays}
 
       {showDonation && (
         <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-300">
@@ -324,6 +458,19 @@ const App: React.FC = () => {
       )}
     </>
   );
+};
+
+type Gate = { kind: LockMode } | { kind: 'ready'; data: AppData };
+
+const App: React.FC = () => {
+  const [gate, setGate] = useState<Gate>(() =>
+    vaultExists() ? { kind: 'unlock' } : hasPlainData() ? { kind: 'migrate' } : { kind: 'setup' }
+  );
+
+  if (gate.kind !== 'ready') {
+    return <LockScreen mode={gate.kind} onUnlocked={data => setGate({ kind: 'ready', data })} />;
+  }
+  return <MainApp initialData={gate.data} />;
 };
 
 export default App;
