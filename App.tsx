@@ -11,7 +11,7 @@ import BackupDialog from './components/BackupDialog';
 import PasswordPrompt from './components/PasswordPrompt';
 import { storageService, mergeData, DeliveryResult } from './services/storage';
 import DonationLinks from './components/DonationLinks';
-import { donationReason, onDonated, onDonationMuted, onDonationShown, DonationReason } from './services/donation';
+import { donationReason, onDonated, onDonationShown, DonationReason } from './services/donation';
 import { backupDue, backupReminderOf, daysSinceBackup, snoozeUntilTomorrow } from './services/backupReminder';
 import { EncryptedBlob, WrongSecretError, validateSecret } from './services/crypto';
 import {
@@ -454,10 +454,6 @@ const MainApp: React.FC<{ initialData: AppData }> = ({ initialData }) => {
             backupEmail={data.settings.backupEmail}
             onBackupEmailChange={handleBackupEmailChange}
             onBackup={() => setShowBackup(true)}
-            donationPrompts={!data.settings.donationMuted}
-            onDonationPromptsChange={(on) =>
-              setData(prev => ({ ...prev, settings: { ...prev.settings, donationMuted: !on } }))
-            }
             onChangePin={handleChangePin}
             onLock={() => setLocked(true)}
             autoLockMinutes={autoLock}
@@ -561,15 +557,6 @@ const MainApp: React.FC<{ initialData: AppData }> = ({ initialData }) => {
                 className="w-full text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] py-1.5 hover:text-slate-500 transition-colors"
               >
                 Quizás más tarde
-              </button>
-              <button
-                onClick={() => {
-                  setData(prev => ({ ...prev, settings: onDonationMuted(prev.settings) }));
-                  setShowDonation(false);
-                }}
-                className="w-full text-[10px] font-bold text-slate-300 py-1.5 hover:text-slate-500 transition-colors"
-              >
-                No mostrar más este aviso
               </button>
             </div>
           </div>

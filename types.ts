@@ -85,8 +85,6 @@ export interface AppSettings {
   donationLogsAtPrompt?: number;
   /** "Ya doné": no pedir hasta esta fecha (ms). */
   donationQuietUntil?: number;
-  /** "No volver a mostrar": apagado el pedido automático (los links siguen en Ajustes). */
-  donationMuted?: boolean;
   /** Último cuidador elegido al registrar, para preseleccionarlo. */
   lastCaregiverId?: string;
   /** La persona ya vio el aviso de "guardá tu backup" y lo aceptó. */

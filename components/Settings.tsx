@@ -28,9 +28,6 @@ interface SettingsProps {
   backupEmail?: string;
   onBackupEmailChange: (email: string) => void;
   onBackup: () => void;
-  /** Si el pedido de apoyo automático está activado. */
-  donationPrompts: boolean;
-  onDonationPromptsChange: (on: boolean) => void;
   /** Devuelve un mensaje de error o null si el PIN se cambió. */
   onChangePin: (current: string, next: string) => Promise<string | null>;
   onLock: () => void;
@@ -41,7 +38,7 @@ interface SettingsProps {
 const Settings: React.FC<SettingsProps> = ({
   profile, logs, caregivers, onUpdateProfile, onDeleteProfile, onExport, onImport,
   lastBackupAt, backupReminder, onBackupReminderChange, backupEmail, onBackupEmailChange,
-  onBackup, donationPrompts, onDonationPromptsChange, onChangePin, onLock, autoLockMinutes, onAutoLockChange,
+  onBackup, onChangePin, onLock, autoLockMinutes, onAutoLockChange,
 }) => {
   const [emailDraft, setEmailDraft] = useState(backupEmail ?? '');
   const emailInvalid = emailDraft.trim() !== '' && !isValidEmail(emailDraft);
@@ -462,15 +459,6 @@ const Settings: React.FC<SettingsProps> = ({
         <div className="pt-2">
           <DonationLinks />
         </div>
-        <label className="flex items-center justify-between gap-3 pt-3 border-t border-slate-200 cursor-pointer">
-          <span className="text-[11px] text-slate-500 leading-relaxed">Mostrar un aviso de apoyo de vez en cuando</span>
-          <input
-            type="checkbox"
-            checked={donationPrompts}
-            onChange={e => onDonationPromptsChange(e.target.checked)}
-            className="w-5 h-5 accent-blue-600 shrink-0"
-          />
-        </label>
       </div>
 
       <div className="flex flex-col items-center justify-center gap-3 text-slate-300 py-4">

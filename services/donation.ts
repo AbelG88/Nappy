@@ -33,7 +33,6 @@ export type DonationReason = 'logs' | 'opens';
 
 /** ¿Se pueden mostrar avisos de apoyo ahora (sin contar los contadores)? */
 const allowed = (s: AppSettings, now: number): boolean => {
-  if (s.donationMuted) return false;
   if (s.donationQuietUntil && now < s.donationQuietUntil) return false;
   // lastDonationPrompt arranca con la fecha de instalación, así que también da un respiro inicial.
   return now - (s.lastDonationPrompt ?? 0) >= DONATION_COOLDOWN_DAYS * DAY_MS;
@@ -63,5 +62,3 @@ export const onDonated = (s: AppSettings, now: number): AppSettings => ({
   ...s,
   donationQuietUntil: now + DONATION_DONATED_QUIET_DAYS * DAY_MS,
 });
-
-export const onDonationMuted = (s: AppSettings): AppSettings => ({ ...s, donationMuted: true });
