@@ -26,6 +26,7 @@ import {
   setSecretKind,
   vaultExists,
   verifyPin,
+  sessionSecret,
 } from './services/vault';
 import { AppData, BackupReminder, BathroomLog, Caregiver, Profile } from './types';
 import { dueEvents, intervalDue, todayKey } from './services/reminders';
@@ -484,7 +485,7 @@ const MainApp: React.FC<{ initialData: AppData }> = ({ initialData }) => {
         <BackupDialog
           notice
           onExport={handleBackup}
-          verifySecret={verifyPin}
+          getSessionSecret={sessionSecret}
           email={data.settings.backupEmail}
           onClose={() => {}}
           onAcknowledge={() => setData(prev => ({ ...prev, settings: { ...prev.settings, backupNoticeAck: true, backupNoticeAckAt: Date.now() } }))}
@@ -492,7 +493,7 @@ const MainApp: React.FC<{ initialData: AppData }> = ({ initialData }) => {
       )}
 
       {showBackup && data.settings.backupNoticeAck && (
-        <BackupDialog onExport={handleBackup} verifySecret={verifyPin} email={data.settings.backupEmail} onClose={() => setShowBackup(false)} />
+        <BackupDialog onExport={handleBackup} getSessionSecret={sessionSecret} email={data.settings.backupEmail} onClose={() => setShowBackup(false)} />
       )}
 
       {backupIsDue && data.settings.backupNoticeAck && !showBackup && !locked && !pendingEncrypted && (

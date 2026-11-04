@@ -206,7 +206,7 @@ const LockScreen: React.FC<LockScreenProps> = ({ mode: initialMode, onUnlocked }
           Elegir archivo
         </PrimaryButton>
         <ErrorText text={error} />
-        <LinkButton onClick={() => goTo('forgot')}>
+        <LinkButton onClick={() => goTo(mode === 'unlock' ? 'forgot' : 'main')}>
           <ArrowLeft size={12} className="inline mr-1" /> Volver
         </LinkButton>
       </Card>
@@ -321,6 +321,9 @@ const LockScreen: React.FC<LockScreenProps> = ({ mode: initialMode, onUnlocked }
           <LinkButton onClick={() => goTo('restore-file')}>
             <ArrowLeft size={12} className="inline mr-1" /> Volver
           </LinkButton>
+        )}
+        {mode === 'setup' && !isRestore && (
+          <LinkButton onClick={() => goTo('restore-file')}>Ya tengo un backup: restaurarlo</LinkButton>
         )}
       </Card>
     );

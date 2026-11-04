@@ -24,6 +24,8 @@ interface Session {
   key: CryptoKey;
   salt: Uint8Array;
   iter: number;
+  /** PIN en memoria mientras la bóveda está abierta. */
+  secret?: string;
 }
 
 let session: Session | null = null;
@@ -47,6 +49,9 @@ export const hasPlainData = (): boolean => PLAIN_KEYS.some(k => localStorage.get
 
 export const isUnlocked = (): boolean => session !== null;
 
+/** PIN de la sesión actual (solo en memoria; se descarta al bloquear). Sirve para usarlo como contraseña del backup sin pedirlo de nuevo. */
+export const sessionSecret = (): string | null => session?.secret ?? null;
+
 const writeBlob = async (data: AppData): Promise<void> => {
   if (!session) throw new Error('La bóveda está bloqueada.');
   const { key, salt, iter } = session;
@@ -59,7 +64,7 @@ export const createVault = async (pin: string, data: AppData): Promise<void> => 
   const salt = randomBytes(16);
   const key = await deriveKey(pin, salt, PBKDF2_ITERATIONS);
   const previous = session;
-  session = { key, salt, iter: PBKDF2_ITERATIONS };
+  session = { key, salt, iter: PBKDF2_ITERATIONS, secret: pin };
   try {
     await writeBlob(data);
     const blob = readBlob();
@@ -81,7 +86,7 @@ export const unlockVault = async (pin: string): Promise<AppData> => {
   const text = await decryptWithKey(key, blob);
   const data = parseBackup(JSON.parse(text));
   if (!data) throw new Error('Los datos guardados no tienen un formato válido.');
-  session = { key, salt, iter: blob.iter };
+  session = { key, salt, iter: blob.iter, secret: pin };
   return data;
 };
 
