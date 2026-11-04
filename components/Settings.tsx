@@ -2,11 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { BathroomLog, Caregiver, Profile } from '../types';
 import { Download, Upload, Bell, Info, Share2, Heart, Baby, CreditCard, Github, Trash2, FileText, ShieldCheck, Lock } from 'lucide-react';
 import ReminderSettings from './ReminderSettings';
-import { AGE_OPTIONS, GOAL_OPTIONS, SEX_OPTIONS, TELLS_OPTIONS } from '../constants';
+import { AGE_OPTIONS, APP_VERSION, GOAL_OPTIONS, SEX_OPTIONS, TELLS_OPTIONS } from '../constants';
 import { PERIOD_OPTIONS, ReportPeriod, buildReport, deliverPdf, filterByPeriod, reportFilename } from '../services/report';
 import Chip from './Chip';
 import SecretInput from './SecretInput';
 import DonationLinks from './DonationLinks';
+import ContactForm from './ContactForm';
 import { AUTOLOCK_OPTIONS } from '../services/vault';
 import { BackupReminder } from '../types';
 import { BACKUP_FREQUENCIES, isValidEmail } from '../services/backupReminder';
@@ -461,11 +462,13 @@ const Settings: React.FC<SettingsProps> = ({
         </div>
       </div>
 
+      <ContactForm />
+
       <div className="flex flex-col items-center justify-center gap-3 text-slate-300 py-4">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <Info size={14} />
-            <span className="text-[10px] font-bold uppercase tracking-widest">Versión 1.1.0</span>
+            <span className="text-[10px] font-bold uppercase tracking-widest">Versión {APP_VERSION}</span>
           </div>
           <a 
             href="https://github.com/AbelG88/Nappy" 

@@ -48,3 +48,6 @@ export const avatarEmoji = (sex: Sex): string =>
 
 export const avatarBg = (sex: Sex): string =>
   sex === 'girl' ? 'bg-pink-100' : sex === 'boy' ? 'bg-sky-100' : 'bg-amber-100';
+
+/** Versión visible en Ajustes y en los mensajes de contacto. */
+export const APP_VERSION = '1.2.0';
