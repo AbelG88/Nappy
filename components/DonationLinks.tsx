@@ -14,7 +14,29 @@ const GROUPS: { id: DonationLink['group']; title: string }[] = [
   { id: 'intl', title: 'Desde el exterior' },
 ];
 
-const DonationLinks: React.FC<{ size?: 'md' | 'lg' }> = ({ size = 'md' }) => (
+const DonationLinks: React.FC<{ size?: 'sm' | 'md' | 'lg' }> = ({ size = 'md' }) => size === 'sm' ? (
+  <div className="space-y-2">
+    {GROUPS.map(g => (
+      <div key={g.id} className="space-y-1">
+        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest text-left">{g.title}</p>
+        <div className="flex gap-2">
+          {DONATION_LINKS.filter(l => l.group === g.id).map(l => (
+            <a
+              key={l.id}
+              href={l.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`flex-1 min-w-0 font-bold text-xs py-2 px-2 rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-95 ${STYLE[l.id]}`}
+            >
+              {l.id === 'cafecito' || l.id === 'buymeacoffee' ? <Coffee size={14} className="shrink-0" /> : <CreditCard size={14} className="shrink-0" />}
+              <span className="truncate">{l.label}</span>
+            </a>
+          ))}
+        </div>
+      </div>
+    ))}
+  </div>
+) : (
   <div className="space-y-4">
     {GROUPS.map(g => (
       <div key={g.id} className="space-y-2">

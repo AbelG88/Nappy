@@ -129,6 +129,17 @@ const Settings: React.FC<SettingsProps> = ({
 
   return (
     <div className="space-y-6">
+      <div className="bg-rose-50/60 p-4 rounded-3xl border border-rose-100 space-y-3">
+        <div className="flex items-center gap-2">
+          <Heart className="text-rose-500 fill-rose-500 shrink-0" size={18} />
+          <h3 className="font-bold text-sm text-slate-800">Apoya Nappy</h3>
+        </div>
+        <p className="text-[11px] text-slate-500 leading-relaxed">
+          Es gratis y sin publicidad. Si te ayuda, un aporte (opcional) mantiene el proyecto vivo.
+        </p>
+        <DonationLinks size="sm" />
+      </div>
+
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-6">
         <h3 className="text-sm font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
           <Baby size={18} className="text-blue-500" /> Perfil de {profile.name}
@@ -456,19 +467,6 @@ const Settings: React.FC<SettingsProps> = ({
           <p className="text-[11px] text-slate-400 text-center">Todavía no hay registros en este período.</p>
         )}
         {reportError && <p className="text-[11px] text-rose-500 text-center">{reportError}</p>}
-      </div>
-
-      <div className="bg-slate-50 p-6 rounded-[32px] border border-slate-200 space-y-4">
-        <div className="flex items-center gap-3">
-           <Heart className="text-rose-500 fill-rose-500" size={24} />
-           <h3 className="font-bold text-lg text-slate-800">Apoya Nappy</h3>
-        </div>
-        <p className="text-xs text-slate-500 leading-relaxed">
-          Nappy es una herramienta gratuita. Si te ayuda en el día a día, considera realizar una donación para mantener el proyecto vivo.
-        </p>
-        <div className="pt-2">
-          <DonationLinks />
-        </div>
       </div>
 
       <ContactForm />
