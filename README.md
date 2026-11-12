@@ -6,16 +6,19 @@ App publicada: https://abelg88.github.io/Nappy/
 
 ## Qué hace
 
-- **Varios perfiles** (uno por peque), con un wizard inicial: nombre, sexo (para el ícono), edad, objetivo (pis, caca o ambos), hábitos, recordatorios y cuidadores.
+- **Varios perfiles** (uno por peque), con un wizard inicial: nombre, sexo (para el ícono), fecha de nacimiento (la edad se calcula sola, hasta 18 años), objetivo (pis, caca o ambos), hábitos, recordatorios y cuidadores.
 - **Registro rápido con chips**: tipo, resultado (logro, intento o accidente), cuidador, iniciativa y momento. La nota es opcional.
 - **Historial y estadísticas** por peque.
-- **Cuidadores** (papá, mamá, abuela, abuelo u otra persona) para elegirlos rápido al cargar un intento.
+- **Cuidadores** (papá, mamá, abuela, abuelo u "Otro") para elegirlos rápido al cargar un intento.
 - **Recordatorios por peque**, con permiso de notificaciones. Se elige un solo formato:
   - *Por horarios*: levantarse, desayuno, almuerzo, siesta, merienda y cena, con hora editable y horarios propios. Suena a la hora pactada.
   - *Cada tanto tiempo*: cada 30 min, 1, 1,5, 2 o 3 h.
   - En Ajustes hay un botón de aviso de prueba.
 - **Compartir el historial entre cuidadores**: Ajustes → Datos → Exportar genera un respaldo (`.json`). Quien lo recibe lo importa y sus registros se **suman** a los suyos, sin borrar nada ni duplicar (importar dos veces es seguro). Los perfiles y cuidadores se reconocen por nombre. Los perfiles importados llegan con los recordatorios apagados.
 - **Informe en PDF para profesionales**: período a elegir, resumen, horarios, detalle por día y por cuidador, y detalle de registros.
+- **Seguridad y backups**: PIN o contraseña al abrir, backup cifrado (`.nappy`) con recordatorio periódico, y restauración desde el primer uso (se puede saltar el wizard). Si el backup se hace con el mismo PIN, no lo vuelve a pedir.
+- **Legal y contacto**: aceptación inicial de términos, privacidad y aviso médico (ES/EN), pantalla en Ajustes y formulario de contacto por correo.
+- **Apoyo (donación)**: links discretos (Mercado Pago, Cafecito, PayPal, Buy Me a Coffee), con frecuencia limitada y sin silenciar.
 - **Instalable (PWA)**: manifest, íconos y service worker.
 
 ## Limitaciones
@@ -33,11 +36,33 @@ App publicada: https://abelg88.github.io/Nappy/
 
 ## Correr en local
 
-Requiere Node.js.
+Requiere Node.js 22 (el mismo que usa el workflow).
 
 ```
 npm install
-npm run dev
+npm run dev        # servidor en http://localhost:3000
+```
+
+| Script | Qué hace |
+| --- | --- |
+| `npm run dev` | Servidor de desarrollo (Vite, puerto 3000) |
+| `npm run build` | Build de producción en `dist/` |
+| `npm run preview` | Sirve el build local |
+| `npm run licenses` | Regenera `public/third-party-licenses.txt` |
+| `npx tsc --noEmit` | Chequeo de tipos (todavía no es un script ni corre en CI) |
+
+## Estructura
+
+```
+App.tsx            Estado global, navegación y flujo de arranque (legal → PIN → wizard)
+types.ts           Modelos: perfiles, registros, cuidadores, recordatorios
+constants.ts       Opciones de edad, objetivo, cuidadores y helpers de fecha
+components/        Pantallas y piezas de UI (Tracker, History, Statistics, Settings, ProfileWizard…)
+services/          Lógica sin UI: vault/crypto/storage (cifrado y persistencia), reminders,
+                   notifications, report (PDF), legal, contact, donation, backupReminder
+legal/             Términos, privacidad y aviso médico en .md (ES/EN)
+public/            Manifest, íconos, service worker y licencias de terceros
+scripts/           Generador de licencias de terceros
 ```
 
 ## Publicación
@@ -61,3 +86,8 @@ React 19, Vite 6, TypeScript, Tailwind (CDN), lucide-react, recharts, jsPDF + js
 
 - Multilenguaje de toda la app (hoy solo los textos legales están en español e inglés).
 - Código de apoyo (reconocimiento simbólico; no bloquea funciones).
+- Calidad técnica: script de `typecheck` y tests de `services/` (crypto, importación sin duplicados, recordatorios, edad) corriendo en CI antes de desplegar.
+- Tailwind compilado en el build en vez de por CDN (mejora privacidad, velocidad y permite uso offline).
+- Service worker con caché de la app para que funcione sin conexión.
+- Reducir el bundle principal (~770 kB, sobre todo recharts) con carga diferida de pantallas.
+- Accesibilidad: el viewport actual bloquea el zoom (`user-scalable=no`).
